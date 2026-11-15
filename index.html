@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a111e">
+<title>Vigie Sono</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Mise en page : un bandeau « verdict » en clair sur toute la largeur, puis l'instrument
+     (3 barres) à gauche et le temps (historique 2 min + détecteurs) à droite.
+     Un seul univers visuel, sombre, façon façade d'appareil : l'écran ne doit pas éblouir dans la salle. */
+  --bg:#0a111e; --panel:#111b2d; --panel-2:#18243b; --line:#26354f; --text:#e9eff9; --muted:#94a4c0;
+  /* Couleurs de niveau (demandées) : rien, bleu foncé, bleu clair, jaune, orange, rouge */
+  --z-silence:#4a5873; --z-weak:#2b5fdb; --z-ok:#5cc6ff; --z-warm:#ffd43b; --z-hot:#ff8b2b; --z-clip:#ff3d3d;
+  /* Couleurs réservées aux deux détecteurs, pour ne jamais les confondre avec un niveau */
+  --pop:#b792ff; --larsen:#ff5cad;
+  --ink:#0a111e;
+  --font-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:400 16px/1.45 var(--font-body);-webkit-font-smoothing:antialiased}
+button,select,input{font-family:inherit}
+:focus-visible{outline:2px solid var(--z-ok);outline-offset:2px}
+
+.app{max-width:1180px;margin:0 auto;padding:14px 16px 44px;display:flex;flex-direction:column;gap:14px}
+
+/* En-tête */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font:700 1.4rem/1 var(--font-display);letter-spacing:.04em;margin:0;text-transform:uppercase}
+.brand-mark{display:flex;gap:3px;align-items:flex-end;height:20px}
+.brand-mark i{width:5px;border-radius:1.5px;background:var(--z-ok)}
+.brand-mark i:nth-child(1){height:10px;background:var(--z-weak)}
+.brand-mark i:nth-child(2){height:20px}
+.brand-mark i:nth-child(3){height:14px;background:var(--z-warm)}
+.chip{font:600 .75rem/1 var(--font-body);padding:6px 10px;border-radius:999px;background:var(--panel-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.chip[data-kind="live"]{color:var(--text)}
+.chip[data-kind="live"]::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--z-ok);margin-right:6px}
+.chip[data-kind="demo"]{color:var(--ink);background:var(--pop);border-color:transparent}
+.top-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+
+.btn{font:600 .95rem/1 var(--font-body);color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;cursor:pointer;min-height:42px}
+.btn:hover{border-color:#40557f}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--text);color:var(--ink);border-color:transparent}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"]{background:var(--text);color:var(--ink);border-color:transparent}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.seg button{font:600 .9rem/1 var(--font-body);color:var(--muted);background:transparent;border:0;padding:11px 13px;cursor:pointer;min-height:42px}
+.seg button[aria-checked="true"]{background:var(--panel-2);color:var(--text);box-shadow:inset 0 -2px 0 var(--text)}
+
+/* Verdict */
+.verdict{--c:var(--z-silence);--on:#fff;display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 16px;align-items:center;padding:16px 18px;border-radius:14px;min-height:116px;
+  background:var(--panel);background:color-mix(in srgb,var(--c) 15%,var(--panel));
+  border:1px solid var(--line);border-color:color-mix(in srgb,var(--c) 45%,var(--line));border-left:8px solid var(--c)}
+.lamp{width:60px;height:60px;border-radius:50%;background:var(--c);color:var(--on);display:grid;place-items:center}
+.lamp svg{width:32px;height:32px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.kicker{font:600 .72rem/1 var(--font-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+.verdict h2{font:700 clamp(1.65rem,5.4vw,2.5rem)/1.05 var(--font-display);margin:4px 0 5px;text-wrap:balance}
+.advice{margin:0;font-size:1.05rem;max-width:64ch}
+.verdict-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px}
+.verdict[data-state="weak"],.verdict[data-state="dull"]{--c:var(--z-weak)}
+.verdict[data-state="ok"]{--c:var(--z-ok);--on:var(--ink)}
+.verdict[data-state="warm"],.verdict[data-state="bass"],.verdict[data-state="treble"]{--c:var(--z-warm);--on:var(--ink)}
+.verdict[data-state="hot"]{--c:var(--z-hot);--on:var(--ink)}
+.verdict[data-state="clip"]{--c:var(--z-clip)}
+.verdict[data-state="pop"]{--c:var(--pop);--on:var(--ink)}
+.verdict[data-state="larsen"]{--c:var(--larsen);--on:var(--ink)}
+.verdict[data-alert="1"] .lamp{animation:pulse .6s ease-in-out infinite alternate}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.13)}}
+.err{grid-column:1/-1;margin:0;padding:10px 12px;border-radius:10px;background:rgba(255,61,61,.14);border:1px solid rgba(255,61,61,.5)}
+
+.notice{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;border:1px dashed #4b5f88;color:var(--muted);font-size:.93rem}
+.notice p{margin:0;max-width:70ch}
+
+/* Panneaux */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.panel h3{font:600 .78rem/1 var(--font-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+
+/* Égaliseur */
+.mgrid{display:grid;grid-template-columns:86px repeat(3,minmax(0,1fr));column-gap:10px}
+.mstage{height:232px}
+.mscale{position:relative;font:500 .72rem/1.1 var(--font-body);color:var(--muted)}
+.mscale span{position:absolute;left:0;right:0;bottom:var(--a);height:calc(var(--h) - 2px);display:flex;align-items:center;justify-content:flex-end;text-align:right;padding-right:8px;border-right:3px solid var(--zc)}
+.mcol{position:relative}
+.mcol canvas{position:absolute;inset:0;margin:0 auto;width:min(100%,96px);height:100%;display:block}
+.mname{display:flex;flex-direction:column;gap:5px;align-items:center;text-align:center;padding-top:10px}
+.mname b{font:700 1.08rem/1 var(--font-display);letter-spacing:.04em;text-transform:uppercase}
+.mname small{color:var(--muted);font-size:.74rem;line-height:1.2;min-height:2.4em}
+.zchip{font:600 .78rem/1 var(--font-body);padding:6px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);min-width:84px}
+.zchip[data-z="1"]{background:var(--z-weak);color:#fff;border-color:transparent}
+.zchip[data-z="2"]{background:var(--z-ok);color:var(--ink);border-color:transparent}
+.zchip[data-z="3"]{background:var(--z-warm);color:var(--ink);border-color:transparent}
+.zchip[data-z="4"]{background:var(--z-hot);color:var(--ink);border-color:transparent}
+.zchip[data-z="5"]{background:var(--z-clip);color:#fff;border-color:transparent}
+
+/* Détecteurs */
+.dets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.det{--c:var(--pop);display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.det.larsen{--c:var(--larsen)}
+.det .dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--c);grid-row:span 2}
+.det b{font:700 1.08rem/1 var(--font-display);text-transform:uppercase;letter-spacing:.04em}
+.det small{color:var(--muted);font-size:.78rem;line-height:1.2}
+.det .dstate{grid-column:1/-1;font-weight:600;font-size:.95rem;margin-top:7px}
+.det .dcount{grid-column:1/-1;color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.det[data-on="1"]{border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--panel))}
+.det[data-on="1"] .dot{background:var(--c);box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 30%,transparent)}
+.det[data-off="1"]{opacity:.5}
+
+/* Historique */
+.hgrid{display:grid;grid-template-columns:62px minmax(0,1fr);column-gap:8px}
+.hlabels{display:grid;grid-template-rows:22px repeat(3,minmax(0,1fr));row-gap:4px;height:172px;font:600 .74rem/1 var(--font-body);color:var(--muted)}
+.hlabels span{display:flex;align-items:center}
+.hcanvas{height:172px}
+.hcanvas canvas{width:100%;height:100%;display:block}
+.haxis{grid-column:2;display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);padding-top:6px;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
+.legend span{white-space:nowrap}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.none{border:1px solid var(--muted);background:transparent}
+.legend i.round{border-radius:50%}
+
+/* Démo */
+.demo{border-color:var(--pop)}
+.demo p{margin:0 0 10px;color:var(--muted);font-size:.92rem;max-width:80ch}
+.demo-row{display:flex;flex-wrap:wrap;gap:8px}
+.demo-row + .demo-row{margin-top:8px}
+.demo .btn{padding:9px 12px;min-height:38px;font-size:.9rem}
+.demo .btn.shot{border-color:var(--pop)}
+.demo .btn.shot.l{border-color:var(--larsen)}
+
+/* Bilan */
+.bbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--panel-2)}
+.bbar i{display:block;height:100%}
+.bilan p{margin:10px 0 0}
+.brow{display:flex;flex-wrap:wrap;gap:4px 20px;margin-top:6px;font-size:.9rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.brow b{color:var(--text);font-weight:600}
+
+/* Aide */
+.help summary{cursor:pointer;font-weight:600}
+.help ul{margin:10px 0 0;padding-left:20px;max-width:75ch}
+.help li{margin:6px 0}
+
+/* Fenêtres */
+dialog.sheet{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--text);padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
+dialog.sheet::backdrop{background:rgba(4,8,16,.72)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.sheet-head h2{font:700 1.3rem/1 var(--font-display);text-transform:uppercase;letter-spacing:.04em;margin:0}
+.sheet-body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:18px}
+.sheet-body p{margin:0}
+.field{display:flex;flex-direction:column;gap:7px}
+.field > label,.field > .lbl{font-weight:600}
+.field small{color:var(--muted);font-size:.85rem}
+.field select,.field input[type=range]{width:100%}
+.field select{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.95rem;min-height:42px}
+.inline{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.inline label{display:flex;align-items:center;gap:8px;font-weight:600}
+.inline select{width:auto;flex:1;min-width:150px}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--z-ok)}
+input[type=range]{accent-color:var(--z-ok)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:12px;border:1px solid var(--line);border-radius:12px}
+.steps li::before{content:counter(s);grid-row:span 3;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 1rem/1 var(--font-display);background:var(--panel-2);border:1px solid var(--line)}
+.steps li[data-state="done"]::before{content:"✓";background:var(--z-ok);color:var(--ink);border-color:transparent}
+.steps li span{color:var(--muted);font-size:.93rem}
+.steps li .btn{justify-self:start;margin-top:6px}
+.calmeter,.calprog{height:10px;border-radius:5px;background:var(--panel-2);overflow:hidden}
+.calmeter i,.calprog i{display:block;height:100%;width:0;background:var(--z-ok)}
+.calprog i{background:var(--text)}
+.callabel{font-size:.8rem;color:var(--muted);margin-bottom:5px}
+.diag{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+@media (min-width:920px){
+  .grid{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-areas:"meters history" "meters dets" "bilan bilan" "help help"}
+  .meters{grid-area:meters;display:flex;flex-direction:column}
+  .history{grid-area:history}.dets{grid-area:dets}.bilan{grid-area:bilan}.help{grid-area:help}
+  .mstage{flex:1;height:auto;min-height:270px}
+}
+@media (max-width:420px){
+  .mgrid{grid-template-columns:70px repeat(3,minmax(0,1fr));column-gap:7px}
+  .zchip{min-width:0;width:100%;padding:6px 4px}
+  .lamp{width:50px;height:50px}.lamp svg{width:27px;height:27px}
+  .hgrid{grid-template-columns:54px minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  .verdict[data-alert="1"] .lamp{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <h1>Vigie Sono</h1>
+      <span class="chip" id="modeChip">À l’arrêt</span>
+    </div>
+    <div class="top-actions">
+      <div class="seg" role="radiogroup" aria-label="Mon poste">
+        <button type="button" role="radio" id="roleSono" aria-checked="true">Sono</button>
+        <button type="button" role="radio" id="roleEstrade" aria-checked="false">Estrade</button>
+      </div>
+      <button type="button" class="btn" id="btnSettings">Réglages</button>
+      <button type="button" class="btn" id="btnStop" hidden>Arrêter</button>
+    </div>
+  </header>
+
+  <section class="verdict" id="verdict" data-state="idle" aria-live="polite">
+    <div class="lamp" aria-hidden="true"><svg viewBox="0 0 24 24"><path id="vIcon" d=""/></svg></div>
+    <div>
+      <p class="kicker" id="vKicker">En ce moment</p>
+      <h2 id="vTitle">Prêt à écouter</h2>
+      <p class="advice" id="vAdvice"></p>
+    </div>
+    <p class="err" id="vErr" hidden></p>
+    <div class="verdict-actions" id="vActions">
+      <button type="button" class="btn primary" id="btnMic">Activer le micro</button>
+      <button type="button" class="btn" id="btnDemo">Voir la démo, sans micro</button>
+    </div>
+  </section>
+
+  <div class="notice" id="notice" hidden>
+    <p id="noticeText"></p>
+    <button type="button" class="btn" id="btnCal">Étalonner maintenant</button>
+  </div>
+
+  <section class="panel demo" id="demoPanel" hidden>
+    <h3>Démo d’entraînement, aucun vrai son</h3>
+    <p>Choisis une situation et regarde comment l’écran réagit. Les boutons Pop et Larsen déclenchent un incident par-dessus la situation en cours.</p>
+    <div class="demo-row" id="demoScen">
+      <button type="button" class="btn" data-sc="silence">Silence</button>
+      <button type="button" class="btn" data-sc="weak">Voix faible</button>
+      <button type="button" class="btn" data-sc="normal">Bonne voix</button>
+      <button type="button" class="btn" data-sc="warm">Un peu fort</button>
+      <button type="button" class="btn" data-sc="hot">Trop fort</button>
+      <button type="button" class="btn" data-sc="clip">Saturation</button>
+      <button type="button" class="btn" data-sc="bass">Trop de graves</button>
+      <button type="button" class="btn" data-sc="treble">Trop d’aigus</button>
+      <button type="button" class="btn" data-sc="dull">Son sourd</button>
+    </div>
+    <div class="demo-row">
+      <button type="button" class="btn shot" id="demoPop">Déclencher un pop</button>
+      <button type="button" class="btn shot l" id="demoLarsen">Déclencher un larsen</button>
+    </div>
+  </section>
+
+  <main class="grid">
+
+    <section class="panel meters">
+      <h3>Égaliseur en direct</h3>
+      <div class="mgrid mstage">
+        <div class="mscale" aria-hidden="true">
+          <span style="--a:88.46%;--h:11.54%;--zc:var(--z-clip)">Saturation</span>
+          <span style="--a:76.92%;--h:11.54%;--zc:var(--z-hot)">Trop fort</span>
+          <span style="--a:65.38%;--h:11.54%;--zc:var(--z-warm)">Un peu fort</span>
+          <span style="--a:34.62%;--h:30.77%;--zc:var(--z-ok)">Bon</span>
+          <span style="--a:11.54%;--h:23.08%;--zc:var(--z-weak)">Faible</span>
+          <span style="--a:0%;--h:11.54%;--zc:var(--z-silence)">Silence</span>
+        </div>
+        <div class="mcol"><canvas id="mLow" aria-label="Niveau des graves"></canvas></div>
+        <div class="mcol"><canvas id="mMid" aria-label="Niveau des médiums"></canvas></div>
+        <div class="mcol"><canvas id="mHigh" aria-label="Niveau des aigus"></canvas></div>
+      </div>
+      <div class="mgrid">
+        <div></div>
+        <div class="mname"><b>Graves</b><small>le corps de la voix</small><span class="zchip" id="zLow">–</span></div>
+        <div class="mname"><b>Médiums</b><small>ce qui porte les mots</small><span class="zchip" id="zMid">–</span></div>
+        <div class="mname"><b>Aigus</b><small>la clarté, les «&nbsp;s&nbsp;»</small><span class="zchip" id="zHigh">–</span></div>
+      </div>
+    </section>
+
+    <section class="panel history">
+      <h3>Les 2 dernières minutes</h3>
+      <div class="hgrid">
+        <div class="hlabels" aria-hidden="true"><span>Alertes</span><span>Graves</span><span>Médiums</span><span>Aigus</span></div>
+        <div class="hcanvas"><canvas id="hist" aria-label="Historique des niveaux sur deux minutes"></canvas></div>
+        <div class="haxis" aria-hidden="true"><span>il y a 2 min</span><span>1 min 30</span><span>1 min</span><span>30 s</span><span>maintenant</span></div>
+      </div>
+      <div class="legend">
+        <span><i class="none"></i>pas de signal</span>
+        <span><i style="background:var(--z-weak)"></i>faible</span>
+        <span><i style="background:var(--z-ok)"></i>bon</span>
+        <span><i style="background:var(--z-warm)"></i>un peu fort</span>
+        <span><i style="background:var(--z-hot)"></i>trop fort</span>
+        <span><i style="background:var(--z-clip)"></i>saturation</span>
+        <span><i class="round" style="background:var(--pop)"></i>pop</span>
+        <span><i style="background:var(--larsen)"></i>larsen</span>
+      </div>
+    </section>
+
+    <section class="dets">
+      <div class="det" id="detPop">
+        <span class="dot" aria-hidden="true"></span>
+        <b>Pop</b><small>souffle ou choc dans le micro</small>
+        <span class="dstate" id="popState">Rien à signaler</span>
+        <span class="dcount" id="popCount">0 en 2 minutes</span>
+      </div>
+      <div class="det larsen" id="detLarsen">
+        <span class="dot" aria-hidden="true"></span>
+        <b>Larsen</b><small>sifflement qui s’emballe</small>
+        <span class="dstate" id="larState">Rien à signaler</span>
+        <span class="dcount" id="larCount">0 en 2 minutes</span>
+      </div>
+    </section>
+
+    <section class="panel bilan">
+      <h3>Bilan depuis le démarrage</h3>
+      <div class="bbar" id="bBar" aria-hidden="true"></div>
+      <p id="bText">Le bilan se remplit dès que quelqu’un parle.</p>
+      <div class="brow" id="bRow"></div>
+    </section>
+
+    <details class="panel help">
+      <summary>Comment lire cet écran</summary>
+      <ul>
+        <li><b>Le bandeau du haut</b> dit en une phrase ce qui se passe et quoi faire, selon ton poste (Sono ou Estrade).</li>
+        <li><b>Les trois barres</b> montrent la voix découpée en graves, médiums et aigus. Quand les trois sont dans le bleu clair, la voix est équilibrée. Le trait blanc garde la trace du niveau le plus haut des dernières secondes ; c’est lui qui décide du mot écrit sous chaque barre.</li>
+        <li><b>L’historique</b> défile de droite à gauche : à droite, maintenant ; à gauche, il y a deux minutes. Une colonne vide veut dire silence.</li>
+        <li><b>Pop</b> : un coup sourd et bref, souvent un « p » ou un « b » soufflé trop près du micro, ou un choc sur le pied.</li>
+        <li><b>Larsen</b> : un sifflement continu sur une seule note, quand un micro reprend le son d’une enceinte.</li>
+        <li><b>Étalonnage</b> : chaque appareil entend différemment. Fais l’étalonnage une fois, à l’endroit où l’appareil sera posé, pour que « Bon » corresponde au bon niveau dans la salle.</li>
+      </ul>
+    </details>
+
+  </main>
+</div>
+
+<!-- Réglages -->
+<dialog class="sheet" id="dlgSettings" aria-labelledby="setTitle">
+  <div class="sheet-head"><h2 id="setTitle">Réglages</h2><button type="button" class="btn ghost" data-close>Fermer</button></div>
+  <div class="sheet-body">
+    <div class="field">
+      <label for="selInput">Entrée audio</label>
+      <select id="selInput"><option value="">Micro par défaut</option></select>
+      <small>La liste complète apparaît une fois le micro activé. Si tu changes d’entrée, refais l’étalonnage.</small>
+      <div class="diag" id="diag"></div>
+    </div>
+    <div class="field">
+      <span class="lbl">Étalonnage</span>
+      <small id="calInfo">Pas encore fait sur cet appareil.</small>
+      <div><button type="button" class="btn" id="btnCal2">Lancer l’étalonnage</button></div>
+    </div>
+    <div class="field">
+      <label for="rngSens">Sensibilité : <span id="sensVal">0 dB</span></label>
+      <input type="range" id="rngSens" min="-20" max="20" step="1" value="0">
+      <small>Tout paraît trop faible alors que le son est bon ? Glisse vers la droite. Tout paraît trop fort ? Vers la gauche.</small>
+    </div>
+    <div class="field">
+      <span class="lbl">Détecteurs</span>
+      <div class="inline">
+        <label><input type="checkbox" id="chkPop" checked> Pop</label>
+        <select id="selPop" aria-label="Sensibilité du détecteur de pop"><option value="0">Discret</option><option value="1" selected>Normal</option><option value="2">Très attentif</option></select>
+      </div>
+      <div class="inline">
+        <label><input type="checkbox" id="chkLarsen" checked> Larsen</label>
+        <select id="selLarsen" aria-label="Sensibilité du détecteur de larsen"><option value="0">Discret</option><option value="1" selected>Normal</option><option value="2">Très attentif</option></select>
+      </div>
+      <small>« Très attentif » réagit plus vite mais peut se tromper pendant les cantiques. « Discret » ne signale que les cas francs.</small>
+    </div>
+    <div class="field" id="fldVib">
+      <div class="inline"><label><input type="checkbox" id="chkVib"> Faire vibrer l’appareil en cas de larsen ou de saturation</label></div>
+    </div>
+    <div class="field">
+      <div><button type="button" class="btn ghost" id="btnReset">Tout remettre à zéro sur cet appareil</button></div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Étalonnage -->
+<dialog class="sheet" id="dlgCal" aria-labelledby="calTitle">
+  <div class="sheet-head"><h2 id="calTitle">Étalonnage</h2><button type="button" class="btn ghost" data-close>Fermer</button></div>
+  <div class="sheet-body">
+    <p>L’étalonnage apprend à cet appareil ce qu’est un bon niveau dans la salle. À faire une seule fois, à l’endroit où l’appareil sera utilisé, avec la sono réglée comme pour une réunion.</p>
+    <ol class="steps">
+      <li id="calS1"><b>Le silence</b><span>Personne ne parle au micro pendant 4 secondes.</span><button type="button" class="btn" id="calGo1">C’est calme, mesurer</button></li>
+      <li id="calS2"><b>La voix normale</b><span>Un frère parle au micro de l’estrade comme pendant une réunion, sans s’arrêter, pendant 10 secondes. Il peut lire un texte.</span><button type="button" class="btn" id="calGo2" disabled>Il parle, mesurer</button></li>
+    </ol>
+    <div>
+      <div class="callabel">Ce que l’appareil entend en ce moment</div>
+      <div class="calmeter" aria-hidden="true"><i id="calLive"></i></div>
+    </div>
+    <div>
+      <div class="callabel">Avancement de la mesure</div>
+      <div class="calprog" aria-hidden="true"><i id="calProg"></i></div>
+    </div>
+    <p id="calMsg" role="status"></p>
+  </div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const LS_KEY = 'vigie-sono-v1';
+const LN10_10 = Math.LN10 / 10;
+const dB = p => 10 * Math.log10(p + 1e-20);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Réglages enregistrés sur l'appareil ---------- */
+const DEFAULTS = { role:'sono', sens:0, popOn:true, popLevel:1, larsenOn:true, larsenLevel:1, vibrate:false, deviceId:'', cal:null };
+// Références par défaut tant que l'appareil n'est pas étalonné (ordre de grandeur d'un micro de téléphone dans une salle)
+const DEFAULT_CAL = { ref:{low:-46, mid:-41, high:-58, total:-40, pl:-48, pm:-43}, sil:{low:-26, mid:-26, high:-26, total:-26}, at:0, snr:null };
+function load(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { return {}; } }
+function save(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+const S = Object.assign({}, DEFAULTS, load());
+
+let mode = 'idle';           // idle | mic | demo
+let demoCal = null, preparing = false;
+const cal = () => mode === 'demo' ? (demoCal || DEFAULT_CAL) : (S.cal || DEFAULT_CAL);
+const sens = () => mode === 'demo' ? 0 : S.sens;
+
+/* ---------- Zones de niveau ---------- */
+const ZN = ['silence','weak','ok','warm','hot','clip'];
+const ZLABEL = ['Silence','Faible','Bon','Un peu fort','Trop fort','Saturation'];
+const SEG = 26, SEG_EDGE = [0,3,9,17,20,23,26];
+const VIS = SEG_EDGE.map(v => v / SEG);
+// rel = écart en dB par rapport au niveau « normal » étalonné ; sil = seuil de silence
+function zoneOf(rel, sil){ return rel < sil ? 0 : rel < -8 ? 1 : rel < 5 ? 2 : rel < 10 ? 3 : rel < 15 ? 4 : 5; }
+function posOf(rel, sil){
+  const e = [sil - 14, sil, -8, 5, 10, 15, 21];
+  if (rel <= e[0]) return 0;
+  if (rel >= e[6]) return 1;
+  for (let i = 0; i < 6; i++) if (rel < e[i+1]) return VIS[i] + (rel - e[i]) / (e[i+1] - e[i]) * (VIS[i+1] - VIS[i]);
+  return 1;
+}
+const segZone = i => i < 3 ? 0 : i < 9 ? 1 : i < 17 ? 2 : i < 20 ? 3 : i < 23 ? 4 : 5;
+
+const cs = getComputedStyle(document.documentElement);
+const cssv = n => cs.getPropertyValue(n).trim();
+function hexA(hex, a){ const n = parseInt(hex.slice(1), 16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+const ZCOL = ZN.map(z => cssv('--z-' + z));
+const ZDIM = ZCOL.map(c => hexA(c, 0.17));
+const C_POP = cssv('--pop'), C_LAR = cssv('--larsen'), C_LANE = cssv('--panel-2'), C_LINE = cssv('--line');
+
+/* ---------- Moteur audio ---------- */
+let ctx = null, bus = null, ana, anaL, anaM, freq, lin, tbuf, tL, tM, sr = 48000, binHz = 11.72;
+let stream = null, micNode = null, micInfo = null, demo = null, wakeLock = null;
+const B = {};
+
+function buildCtx(opts){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  ctx = opts ? new AC(opts) : new AC();
+  sr = ctx.sampleRate;
+  bus = ctx.createGain();
+  // Sortie à zéro : rien ne part jamais vers les haut-parleurs (aucun risque de boucle)
+  const sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);
+  const mkA = n => { const a = ctx.createAnalyser(); a.fftSize = n; a.smoothingTimeConstant = 0; a.minDecibels = -140; a.maxDecibels = 0; a.connect(sink); return a; };
+  const bq = (type, f) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = 0.707; return b; };
+  const chain = (...n) => { for (let i = 0; i < n.length - 1; i++) n[i].connect(n[i+1]); };
+  ana = mkA(4096); bus.connect(ana);
+  anaL = mkA(4096); chain(bus, bq('highpass', 45), bq('lowpass', 180), bq('lowpass', 180), anaL);   // voie « coup sourd »
+  anaM = mkA(4096); chain(bus, bq('highpass', 400), bq('lowpass', 3500), anaM);                     // voie « voix »
+  freq = new Float32Array(ana.frequencyBinCount); lin = new Float32Array(ana.frequencyBinCount);
+  tbuf = new Float32Array(ana.fftSize); tL = new Float32Array(4096); tM = new Float32Array(4096);
+  binHz = sr / ana.fftSize;
+  const k = f => Math.round(f / binHz), ny = ana.frequencyBinCount - 2;
+  B.low = [Math.max(2, k(60)), Math.min(ny, k(250))];
+  B.mid = [Math.min(ny, k(250) + 1), Math.min(ny, k(4000))];
+  B.high = [Math.min(ny, k(4000) + 1), Math.min(ny, k(16000))];
+  B.lar = [Math.min(ny, k(150)), Math.min(ny, k(10000))];
+}
+async function ensureCtx(){
+  if (!ctx) buildCtx();
+  if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
+}
+
+/* ---------- État de l'analyse ---------- */
+const BANDS = ['low','mid','high'], BK = ['low','mid','high','total'];
+const raw = {low:0, mid:0, high:0, total:0};
+const disp = {}, rel = {}, win = {};
+const fast = {pl:0, pm:0};
+class WinMax {            // plus haut niveau des dernières secondes (un créneau = 0,1 s)
+  constructor(n = 20){ this.a = new Float32Array(n).fill(-200); this.i = 0; this.t = 0; }
+  push(v, dt){ this.t += dt; while (this.t >= 0.1){ this.t -= 0.1; this.i = (this.i + 1) % this.a.length; this.a[this.i] = -200; } if (v > this.a[this.i]) this.a[this.i] = v; }
+  max(){ let m = -200; for (let i = 0; i < this.a.length; i++) if (this.a[i] > m) m = this.a[i]; return m; }
+  cap(n, v){ const N = this.a.length; for (let j = 0; j < n; j++){ const k = (this.i - j + N) % N; if (this.a[k] > v) this.a[k] = v; } }
+}
+const before = [];        // niveaux des dernières images, pour retrouver « juste avant le pop »
+const BAL_N = 32;         // 32 créneaux de 0,25 s = 8 s d'énergie par bande, pour juger l'équilibre du timbre
+const bal = { l:new Float64Array(BAL_N), m:new Float64Array(BAL_N), h:new Float64Array(BAL_N), a:new Float32Array(BAL_N), i:0 };
+function balance(){
+  const c = cal(); if (c.ref.lm === undefined) return null;      // il faut un étalonnage pour connaître le timbre normal
+  let l = 0, m = 0, h = 0, a = 0;
+  for (let i = 0; i < BAL_N; i++){ l += bal.l[i]; m += bal.m[i]; h += bal.h[i]; a += bal.a[i]; }
+  if (a < (mode === 'demo' ? 2.5 : 5) || m <= 0) return null;   // il faut assez de parole continue pour juger
+  return { dl: dB(l) - dB(m) - c.ref.lm, dh: dB(h) - dB(m) - c.ref.hm };
+}
+const HN = 480, HSLICE = 0.25;   // 480 colonnes de 0,25 s = 2 minutes
+const hist = { p:[0,1,2].map(() => new Uint8Array(HN)), z:[0,1,2].map(() => new Uint8Array(HN)), ev:new Uint8Array(HN), head:0, t:0, cur:{rel:[-200,-200,-200], ev:0} };
+const pop = {}, lar = {}, stats = {};
+let lastClip = -1e9, lastClipCount = -1e9, larAvg = -140, T = 0, collector = null, quietT = 0, vForce = false, vDiffT = 0, hopAcc = 0;
+
+function resetLive(){
+  for (const b of BK){ disp[b] = -140; rel[b] = -200; win[b] = new WinMax(b === 'high' ? 60 : 20); }
+  bal.l.fill(0); bal.m.fill(0); bal.h.fill(0); bal.a.fill(0);
+  Object.assign(pop, { slow:null, cand:null, last:-1e9, block:0, times:[], floor:0, aLo:0, aMi:0, act:0 });
+  Object.assign(lar, { track:null, active:false, lastEnd:-1e9, freq:0, lastFreq:0, times:[] });
+  lastClip = lastClipCount = -1e9; quietT = 0; before.length = 0; vForce = true;
+}
+function resetSession(){
+  resetLive(); T = 0;
+  hist.p.forEach(a => a.fill(0)); hist.z.forEach(a => a.fill(0)); hist.ev.fill(0); hist.head = 0; hist.t = 0; hist.cur = {rel:[-200,-200,-200], ev:0};
+  Object.assign(stats, { listen:0, zone:[0,0,0,0,0,0], pops:0, larsens:0, clips:0 });
+}
+resetSession();
+
+/* ---------- Analyse, à chaque image ---------- */
+function analyse(dt, t){
+  ana.getFloatFrequencyData(freq);
+  const kmax = Math.max(B.high[1], B.lar[1]);
+  for (let k = B.low[0]; k <= kmax; k++){ const v = freq[k]; lin[k] = v > -200 ? Math.exp(v * LN10_10) : 0; }
+  const bandP = r => { let s = 0; for (let k = r[0]; k <= r[1]; k++) s += lin[k]; return s * 6.566; };   // 6,566 : correction de la fenêtre de Blackman
+  raw.low = bandP(B.low); raw.mid = bandP(B.mid); raw.high = bandP(B.high); raw.total = raw.low + raw.mid + raw.high;
+
+  // Aiguille : montée rapide (50 ms), descente lente tant que ça parle, pour une lecture stable
+  const c = cal(), sv = sens();
+  quietT = (Math.max(-140, dB(raw.total)) - c.ref.total + sv < c.sil.total) ? quietT + dt : 0;
+  if (quietT === 0 && !pop.cand){ const k = bal.i; bal.l[k] += raw.low * dt; bal.m[k] += raw.mid * dt; bal.h[k] += raw.high * dt; bal.a[k] += dt; }
+  const up = 1 - Math.exp(-dt / 0.05), fastDown = quietT > 0.4 && !collector;   // après 0,4 s de vrai silence, on retombe vite
+  before.push([disp.low, disp.mid, disp.high, disp.total]); if (before.length > 5) before.shift();
+  for (const b of BK){
+    const v = Math.max(-140, dB(raw[b]));
+    disp[b] = v > disp[b] ? disp[b] + (v - disp[b]) * up : Math.max(v, disp[b] - (fastDown ? 60 : b === 'high' ? 5 : 8) * dt);
+    rel[b] = disp[b] - c.ref[b] + sv;
+    win[b].push(rel[b], dt);
+  }
+  if (quietT > 2) win.high.cap(60, rel.high);     // après 2 s de silence, la barre des aigus n'a plus rien à retenir
+
+  // Écrêtage de l'entrée
+  const n = clamp(Math.ceil(dt * sr) + 128, 256, tbuf.length);
+  ana.getFloatTimeDomainData(tbuf);
+  let clipN = 0;
+  for (let i = tbuf.length - n; i < tbuf.length; i++) if (tbuf[i] >= 0.985 || tbuf[i] <= -0.985) clipN++;
+  if (clipN >= 3){ lastClip = t; hist.cur.ev |= 4; if (t - lastClipCount > 2){ stats.clips++; buzz([200]); } lastClipCount = t; }
+
+  // Détecteur de pop : tout le son reçu depuis l'image précédente, par tranches de 21 ms qui se chevauchent
+  // (ainsi rien n'échappe au détecteur, même si l'affichage de l'appareil saccade)
+  const HOP = 512;
+  hopAcc += dt * sr; let nb = Math.floor(hopAcc / HOP); hopAcc -= nb * HOP; if (nb > 6){ nb = 6; hopAcc = 0; }
+  if (nb){
+    anaL.getFloatTimeDomainData(tL); anaM.getFloatTimeDomainData(tM);
+    for (let h = nb - 1; h >= 0; h--){
+      const end = tL.length - h * HOP; let sl = 0, sm = 0;
+      for (let i = end - 1024; i < end; i++){ sl += tL[i] * tL[i]; sm += tM[i] * tM[i]; }
+      fast.pl = sl / 1024; fast.pm = sm / 1024;
+      detectPop(HOP / sr, t - h * HOP / sr);
+    }
+  }
+  detectLarsen(dt, t);
+
+  if (collector){
+    const co = collector;
+    co.t += dt * 1000;
+    co.frames.push([disp.low, disp.mid, disp.high, disp.total, fast.pl, fast.pm, co.t, raw.low, raw.mid, raw.high]);
+    if (co.onProg) co.onProg(Math.min(1, co.t / co.ms));
+    if (co.t >= co.ms){ collector = null; co.res(co.frames); }
+  }
+
+  // Historique
+  const cur = hist.cur;
+  if (!preparing) BANDS.forEach((b, i) => { if (rel[b] > cur.rel[i]) cur.rel[i] = rel[b]; });
+  hist.t += dt;
+  while (hist.t >= HSLICE){
+    hist.t -= HSLICE; hist.head = (hist.head + 1) % HN;
+    BANDS.forEach((b, i) => { hist.z[i][hist.head] = zoneOf(cur.rel[i], c.sil[b]); hist.p[i][hist.head] = Math.round(posOf(cur.rel[i], c.sil[b]) * 255); });
+    hist.ev[hist.head] = cur.ev;
+    bal.i = (bal.i + 1) % BAL_N; bal.l[bal.i] = bal.m[bal.i] = bal.h[bal.i] = bal.a[bal.i] = 0;
+    cur.rel = preparing ? [-200, -200, -200] : [rel.low, rel.mid, rel.high]; cur.ev = 0;
+  }
+
+  // Bilan
+  if (!preparing){ stats.listen += dt; stats.zone[zoneOf(win.total.max(), c.sil.total)] += dt; }
+}
+
+/* ---------- Détecteur de pop ----------
+   Un pop = un coup bref dans l'extrême grave, qui monte d'un coup, domine la voix habituelle, puis retombe en moins de 0,2 s. */
+const POP_LV = [{R:13, D:11, L:7}, {R:10, D:8, L:4}, {R:8, D:6, L:2}];   // montée, domination sur la voix, force (en dB)
+const hasCal = () => mode === 'demo' ? !!demoCal : !!S.cal;
+function detectPop(dt, t){
+  const c = cal(), P = POP_LV[S.popLevel] || POP_LV[1];
+  const lo = Math.max(-140, dB(fast.pl)), mi = Math.max(-140, dB(fast.pm));
+  if (pop.slow === null){ pop.slow = lo; pop.floor = mi; }
+  if (!S.popOn){ pop.cand = null; pop.slow = lo; return; }
+  if (pop.cand){
+    const cd = pop.cand; if (lo > cd.peak) cd.peak = lo;
+    if (lo <= cd.peak - 6){
+      pop.cand = null; pop.last = t; pop.times.push(t); stats.pops++; hist.cur.ev |= 1;
+      // le coup ne doit pas faire croire ensuite à « trop de graves » : on revient aux niveaux d'avant le coup
+      const slots = Math.ceil((t - cd.t0) / 0.1) + 2;
+      BK.forEach((b, i) => { if (disp[b] > cd.snap[i]) disp[b] = cd.snap[i]; rel[b] = disp[b] - c.ref[b] + sens(); win[b].cap(slots, cd.snap[i] - c.ref[b] + sens()); });
+    }
+    else if (t - cd.t0 > 0.18){ pop.cand = null; pop.block = t + 0.4; }     // trop long : ce n'est pas un pop
+    return;
+  }
+  // Bruit de fond et niveaux habituels de la voix, appris en continu sur les 6 dernières secondes de parole
+  pop.floor = mi < pop.floor ? mi : Math.min(mi, pop.floor + 1.5 * dt);
+  const active = mi > Math.max(pop.floor, -100) + 10, ready = pop.act >= 2;
+  const refLo = ready ? dB(pop.aLo) : hasCal() ? c.ref.pl : null, refMi = ready ? dB(pop.aMi) : hasCal() ? c.ref.pm : null;
+  if (refLo !== null){
+    const rise = lo - Math.max(pop.slow, refLo - 24), dom = (lo - refLo) - (mi - refMi), loud = lo - refLo;
+    if (t > pop.block && t - pop.last > 0.5 && rise >= P.R && dom >= P.D && loud >= P.L){
+      pop.cand = {t0:t, peak:lo, snap:(before[0] || [disp.low, disp.mid, disp.high, disp.total]).slice()}; return;
+    }
+  }
+  if (active && t - pop.last > 0.3){
+    const k = pop.act < 6 ? dt / (pop.act + dt) : 1 - Math.exp(-dt / 6);   // moyenne simple au début, glissante ensuite
+    pop.aLo += (fast.pl - pop.aLo) * k; pop.aMi += (fast.pm - pop.aMi) * k; pop.act = Math.min(60, pop.act + dt);
+  }
+  pop.slow += (lo - pop.slow) * (1 - Math.exp(-dt / 1.0));
+}
+
+/* ---------- Détecteur de larsen ----------
+   Un larsen = une note pure, très au-dessus de ses voisines, sans harmoniques, qui reste sur la même fréquence. */
+const LAR_LV = [{papr:18, prom:15, hold:0.6}, {papr:15, prom:12, hold:0.4}, {papr:12, prom:9, hold:0.25}];
+function evalPeak(kp, P, c, strict){
+  const k0 = B.lar[0], k1 = B.lar[1], v = freq[kp];
+  if (v - larAvg < P.papr) return false;
+  if (v + 10.5 - c.ref.total + sens() < -12) return false;          // trop discret pour être un larsen
+  let nb = -300;
+  for (let j = 6; j <= 45; j++){ const a = kp - j, b = kp + j; if (a >= k0 && freq[a] > nb) nb = freq[a]; if (b <= k1 && freq[b] > nb) nb = freq[b]; }
+  if (v - nb < P.prom) return false;
+  if (strict){                                                         // une voix ou un instrument a des harmoniques, pas un larsen
+    const h = mul => { const kk = Math.round(kp * mul); if (kk < 3 || kk > freq.length - 3) return -300; return Math.max(freq[kk-1], freq[kk], freq[kk+1]); };
+    if (v - Math.max(h(0.5), h(1/3), h(2), h(3)) < 12) return false;
+  }
+  return true;
+}
+function peakHz(k){
+  const a = freq[k-1], b = freq[k], c = freq[k+1], d = a - 2*b + c;
+  return (k + (d ? clamp(0.5 * (a - c) / d, -0.5, 0.5) : 0)) * binHz;
+}
+function endLarsen(t){ lar.active = false; lar.lastEnd = t; lar.lastFreq = lar.freq; }
+function detectLarsen(dt, t){
+  if (!S.larsenOn){ if (lar.active) endLarsen(t); lar.track = null; return; }
+  const k0 = B.lar[0], k1 = B.lar[1], P = LAR_LV[S.larsenLevel] || LAR_LV[1], c = cal();
+  let s = 0, kp = k0, vm = -300;
+  for (let k = k0; k <= k1; k++){ s += lin[k]; if (freq[k] > vm){ vm = freq[k]; kp = k; } }
+  larAvg = dB(s / (k1 - k0 + 1));
+  let tr = lar.track;
+  if (tr){
+    let kb = tr.k;
+    for (let k = Math.max(k0, tr.k - 1); k <= Math.min(k1, tr.k + 1); k++) if (freq[k] > freq[kb]) kb = k;
+    if (Math.abs(kb - tr.k0) <= 2 && evalPeak(kb, P, c, !tr.confirmed)){ tr.k = kb; tr.dur += dt; tr.miss = 0; tr.level = freq[kb]; }
+    else { tr.miss += dt; if (tr.miss > (tr.confirmed ? 0.25 : 0.1)){ if (tr.confirmed) endLarsen(t); lar.track = tr = null; } }
+  }
+  if (!tr && kp > 2 && evalPeak(kp, P, c, true)) lar.track = tr = {k0:kp, k:kp, dur:0, miss:0, start:vm, level:vm, confirmed:false};
+  if (tr && !tr.confirmed && tr.dur >= P.hold && tr.level >= tr.start - 6){
+    tr.confirmed = true; lar.active = true; lar.freq = peakHz(tr.k);
+    const same = t - lar.lastEnd < 1.5 && Math.abs(lar.freq - lar.lastFreq) < 4 * binHz;   // même épisode qui reprend
+    if (!same){ stats.larsens++; lar.times.push(t); buzz([150, 80, 150]); }
+  }
+  if (lar.active){ hist.cur.ev |= 2; if (tr) lar.freq = peakHz(tr.k); }
+}
+function buzz(p){ if (S.vibrate && navigator.vibrate) { try { navigator.vibrate(p); } catch (e) {} } }
+
+/* ---------- Verdict en clair ---------- */
+const ICON = {
+  mic:'M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3zM6 11.5a6 6 0 0 0 12 0M12 17.5V20',
+  wait:'M12 7v5l3 2M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18',
+  dash:'M6 12h12', ok:'M5 12.5l4.5 4.5L19 7.5', up:'M12 19V5M6 11l6-6 6 6', down:'M12 5v14M6 13l6 6 6-6',
+  alert:'M12 5v9M12 18.4v.2', eq:'M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4',
+  pop:'M4.5 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0M14 8.5a5 5 0 0 1 0 7M17.2 6a9 9 0 0 1 0 12',
+  larsen:'M2 12h3l2-7 3 14 3-14 3 14 2-7h4'
+};
+const V = {
+  idle:{t:'Prêt à écouter', i:'mic', k:'Pour commencer', a:'Appuie sur « Activer le micro » et autorise l’accès. Le son est analysé sur cet appareil : rien n’est enregistré ni envoyé.'},
+  prep:{t:'Préparation de la démo', i:'wait', a:'Deux secondes, le temps de régler les niveaux de la démonstration.'},
+  silence:{t:'Pas de signal', i:'dash',
+    sono:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que son micro est ouvert.',
+    estrade:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que le micro est bien devant lui.'},
+  weak:{t:'Son trop faible', i:'up',
+    sono:'Monte un peu le volume du micro.',
+    estrade:'Rapproche le micro de la bouche de l’orateur.'},
+  ok:{t:'Bon niveau', i:'ok',
+    sono:'Rien à toucher, tout va bien.',
+    estrade:'Le micro est bien placé, rien à toucher.'},
+  warm:{t:'Un peu fort', i:'down',
+    sono:'Baisse légèrement le volume du micro.',
+    estrade:'Si l’orateur parle fort, recule un peu le micro.'},
+  hot:{t:'Beaucoup trop fort', i:'down',
+    sono:'Baisse le volume du micro maintenant.',
+    estrade:'Éloigne le micro de la bouche de l’orateur.'},
+  clip:{t:'Saturation', i:'alert', alert:1,
+    sono:'Le son sature et se déforme. Baisse nettement le volume du micro. Si c’est cet appareil qui sature, éloigne-le de l’enceinte.',
+    estrade:'Le son sature et se déforme. Éloigne tout de suite le micro de la bouche de l’orateur.'},
+  bass:{t:'Trop de graves', i:'eq',
+    sono:'La voix bourdonne. Baisse un peu les graves de ce micro.',
+    estrade:'La voix bourdonne : le micro est sans doute trop près. Recule-le de quelques centimètres.'},
+  treble:{t:'Trop d’aigus', i:'eq',
+    sono:'Le son est agressif, les « s » sifflent. Baisse un peu les aigus de ce micro.',
+    estrade:'Les « s » sifflent. Décale légèrement le micro sur le côté de la bouche.'},
+  dull:{t:'Son un peu sourd', i:'eq',
+    sono:'La voix manque de clarté. Remonte légèrement les aigus de ce micro.',
+    estrade:'La voix manque de clarté. Oriente bien le micro vers la bouche de l’orateur.'},
+  pop:{t:'Pop dans le micro', i:'pop', alert:1,
+    sono:'Un souffle ou un choc a tapé dans le micro. Si ça se répète, préviens le frère à l’estrade.',
+    estrade:'L’orateur souffle dans le micro. Place le micro un peu plus bas ou sur le côté, pas en face de la bouche.'},
+  larsen:{t:'Larsen', i:'larsen', alert:1,
+    sono:'Sifflement vers {f}. Baisse tout de suite le volume du micro ouvert et ferme les micros inutilisés. Si ça revient, baisse un peu les {b}.',
+    estrade:'Sifflement vers {f}. Éloigne le micro des enceintes et ne couvre pas sa grille avec la main.'}
+};
+const fmtHz = f => f < 1000 ? `${Math.round(f / 10) * 10} Hz` : `${(f / 1000).toFixed(1).replace('.', ',')} kHz`;
+const bandName = f => f < 250 ? 'graves' : f < 4000 ? 'médiums' : 'aigus';
+
+let verdict = '', vCand = null, vCandT = 0, vFreqShown = '';
+function computeVerdict(t){
+  if (preparing) return 'prep';
+  if (lar.active || t - lar.lastEnd < 2) return 'larsen';
+  const c = cal(), z = zoneOf(win.total.max(), c.sil.total);
+  if (t - lastClip < 2 || z === 5) return 'clip';
+  if (t - pop.last < 2.5) return 'pop';
+  if (z === 0) return 'silence';
+  if (z === 1) return 'weak';
+  if (z === 4) return 'hot';
+  const b = balance();
+  if (b && b.dl >= 8 && b.dl >= b.dh) return 'bass';
+  if (b && b.dh >= 10) return 'treble';
+  if (z === 3) return 'warm';
+  if (b && b.dh <= -12) return 'dull';
+  return 'ok';
+}
+function setVerdict(v){
+  verdict = v; vCand = null;
+  const d = V[v], el = $('#verdict');
+  el.dataset.state = v; el.dataset.alert = d.alert ? '1' : '0';
+  $('#vIcon').setAttribute('d', ICON[d.i]);
+  $('#vKicker').textContent = d.k || (v === 'prep' ? 'Démo' : 'En ce moment');
+  $('#vTitle').textContent = d.t;
+  let a = d.a || d[S.role] || '';
+  if (v === 'larsen'){ const f = lar.freq || lar.lastFreq; vFreqShown = fmtHz(f); a = a.replace('{f}', vFreqShown).replace('{b}', bandName(f)); }
+  $('#vAdvice').textContent = a;
+}
+function updateVerdict(t){
+  const v = computeVerdict(t);
+  if (v === verdict){
+    vCand = null; vDiffT = t;
+    if (v === 'larsen' && lar.active && fmtHz(lar.freq) !== vFreqShown) setVerdict(v);
+    return;
+  }
+  if (vForce || V[v].alert || V[verdict].alert || v === 'prep' || verdict === 'prep' || verdict === 'idle'){ vForce = false; vDiffT = t; setVerdict(v); return; }
+  if (vCand !== v){ vCand = v; vCandT = t; }
+  if (t - vCandT >= 0.7 || t - vDiffT >= 1.5){ vDiffT = t; setVerdict(v); }   // on attend que ça se confirme, pour éviter que le bandeau clignote
+}
+
+/* ---------- Dessin ---------- */
+function fit(cv){
+  const dpr = Math.min(3, window.devicePixelRatio || 1), r = cv.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  return dpr;
+}
+const meters = BANDS.map((b, i) => { const cv = $('#' + ['mLow','mMid','mHigh'][i]); return { b, cv, g: cv.getContext('2d'), dpr: 1 }; });
+const HC = { cv: $('#hist'), g: $('#hist').getContext('2d'), dpr: 1 };
+function fitAll(){ meters.forEach(m => m.dpr = fit(m.cv)); HC.dpr = fit(HC.cv); drawAll(); }
+function rr(g, x, y, w, h, r){ g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+
+function drawMeter(m){
+  const g = m.g, W = m.cv.width, H = m.cv.height, dpr = m.dpr, live = mode !== 'idle';
+  const sil = cal().sil[m.b];
+  g.clearRect(0, 0, W, H);
+  const gap = Math.max(1, Math.round(2 * dpr)), sh = (H - gap * (SEG - 1)) / SEG, r = Math.min(3 * dpr, sh / 2);
+  const lit = live ? posOf(rel[m.b], sil) * SEG : 0;
+  for (let i = 0; i < SEG; i++){
+    const z = segZone(i), y = H - (i + 1) * sh - i * gap;
+    g.fillStyle = ZDIM[z]; rr(g, 0, y, W, sh, r); g.fill();
+    const f = clamp(lit - i, 0, 1);
+    if (f > 0){ g.globalAlpha = f; g.fillStyle = ZCOL[z]; rr(g, 0, y, W, sh, r); g.fill(); g.globalAlpha = 1; }
+  }
+  if (live){
+    const hp = posOf(win[m.b].max(), sil);
+    if (hp > 0.02){ const y = clamp(H - hp * H - dpr, 0, H - 2 * dpr); g.fillStyle = '#fff'; g.fillRect(0, y, W, Math.max(2, 2 * dpr)); }
+  }
+}
+function drawHist(){
+  const g = HC.g, W = HC.cv.width, H = HC.cv.height, dpr = HC.dpr;
+  g.clearRect(0, 0, W, H);
+  const evH = 22 * dpr, gap = 4 * dpr, laneH = (H - evH - 3 * gap) / 3, cw = W / HN;
+  const laneY = i => evH + gap + i * (laneH + gap);
+  g.fillStyle = C_LANE; g.globalAlpha = 0.55;
+  g.fillRect(0, 0, W, evH); for (let i = 0; i < 3; i++) g.fillRect(0, laneY(i), W, laneH);
+  g.globalAlpha = 1;
+  g.fillStyle = C_LINE; for (let q = 1; q < 4; q++) g.fillRect(Math.round(W * q / 4), 0, Math.max(1, dpr), H);
+
+  const frac = (mode === 'idle' || reduceMotion) ? 0 : clamp(hist.t / HSLICE, 0, 1);
+  const c = cal();
+  const pops = [];
+  const col = (x, w, zs, ps, ev) => {
+    for (let b = 0; b < 3; b++){
+      if (!zs[b]) continue;
+      const h = Math.max(3 * dpr, ps[b] * laneH);
+      g.fillStyle = ZCOL[zs[b]]; g.fillRect(x, laneY(b) + laneH - h, w, h);
+    }
+    if (ev & 4){ g.fillStyle = ZCOL[5]; g.fillRect(x, evH * 0.55, Math.max(w, 2 * dpr), evH * 0.45 - 2 * dpr); }
+    if (ev & 2){ g.fillStyle = C_LAR; g.fillRect(x, 2 * dpr, Math.max(w, 2 * dpr), evH - 4 * dpr); }
+    if (ev & 1) pops.push(x + w / 2);
+  };
+  for (let i = 0; i < HN; i++){
+    const idx = (hist.head - (HN - 1 - i) + HN * 2) % HN;
+    if (!(hist.z[0][idx] | hist.z[1][idx] | hist.z[2][idx] | hist.ev[idx])) continue;
+    col((i - frac) * cw, cw + 0.6, [hist.z[0][idx], hist.z[1][idx], hist.z[2][idx]], [hist.p[0][idx] / 255, hist.p[1][idx] / 255, hist.p[2][idx] / 255], hist.ev[idx]);
+  }
+  if (frac > 0){   // la colonne en cours de remplissage, tout à droite
+    const r = hist.cur.rel;
+    col(W - frac * cw, frac * cw + 0.6, BANDS.map((b, i) => zoneOf(r[i], c.sil[b])), BANDS.map((b, i) => posOf(r[i], c.sil[b])), hist.cur.ev);
+  }
+  g.fillStyle = C_POP;
+  for (const x of pops){ g.beginPath(); g.arc(x, evH / 2, 4.5 * dpr, 0, 6.2832); g.fill(); }
+}
+function drawAll(){ meters.forEach(drawMeter); drawHist(); }
+
+/* ---------- Mises à jour lentes de l'interface (4 fois par seconde) ---------- */
+const agoTxt = s => s < 3 ? 'à l’instant' : s < 60 ? `il y a ${Math.round(s)} s` : `il y a ${Math.floor(s / 60)} min`;
+const durTxt = s => { s = Math.floor(s); const m = Math.floor(s / 60); return m ? `${m} min ${String(s % 60).padStart(2, '0')}` : `${s} s`; };
+function slowUI(t){
+  const c = cal();
+  [['low','#zLow'], ['mid','#zMid'], ['high','#zHigh']].forEach(([b, id]) => {
+    const z = preparing ? 0 : zoneOf(win[b].max(), c.sil[b]), el = $(id);
+    el.textContent = ZLABEL[z]; el.dataset.z = z;
+  });
+  pop.times = pop.times.filter(x => t - x <= 120); lar.times = lar.times.filter(x => t - x <= 120);
+  const dp = $('#detPop'), dl = $('#detLarsen');
+  dp.dataset.off = S.popOn ? '0' : '1'; dl.dataset.off = S.larsenOn ? '0' : '1';
+  dp.dataset.on = t - pop.last < 2.5 ? '1' : '0';
+  $('#popState').textContent = !S.popOn ? 'Détecteur coupé' : pop.last > -1e8 ? `Dernier pop ${agoTxt(t - pop.last)}` : 'Rien à signaler';
+  $('#popCount').textContent = `${pop.times.length} en 2 minutes`;
+  dl.dataset.on = lar.active ? '1' : '0';
+  $('#larState').textContent = !S.larsenOn ? 'Détecteur coupé'
+    : lar.active ? `En cours, vers ${fmtHz(lar.freq)} (${bandName(lar.freq)})`
+    : lar.lastEnd > -1e8 ? `Dernier ${agoTxt(t - lar.lastEnd)}, vers ${fmtHz(lar.lastFreq)}` : 'Rien à signaler';
+  $('#larCount').textContent = `${lar.times.length} en 2 minutes`;
+  drawBilan();
+}
+function drawBilan(){
+  const z = stats.zone, speech = z[1] + z[2] + z[3] + z[4] + z[5], bar = $('#bBar');
+  if (speech < 3){ bar.innerHTML = ''; $('#bText').textContent = 'Le bilan se remplit dès que quelqu’un parle.'; }
+  else {
+    bar.innerHTML = [1,2,3,4,5].map(i => `<i style="width:${(z[i] / speech * 100).toFixed(2)}%;background:${ZCOL[i]}"></i>`).join('');
+    const good = Math.round(z[2] / speech * 100), low = Math.round(z[1] / speech * 100), high = Math.round((z[3] + z[4] + z[5]) / speech * 100);
+    $('#bText').textContent = `Bon niveau pendant ${good} % du temps de parole (trop faible : ${low} %, trop fort : ${high} %).`;
+  }
+  $('#bRow').innerHTML = `<span>Écoute : <b>${durTxt(stats.listen)}</b></span><span>Pops : <b>${stats.pops}</b></span><span>Larsens : <b>${stats.larsens}</b></span><span>Saturations : <b>${stats.clips}</b></span>`;
+}
+
+/* ---------- Boucle principale ---------- */
+let lastNow = 0, uiAcc = 0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const s = now / 1000; let dt = lastNow ? s - lastNow : 0.016; lastNow = s;
+  if (mode === 'idle' || !ana) return;
+  dt = clamp(dt, 0.001, 0.25);
+  T += dt;
+  analyse(dt, T);
+  updateVerdict(T);
+  drawAll();
+  if (calOpen) $('#calLive').style.width = (clamp((disp.total + 90) / 80, 0, 1) * 100).toFixed(1) + '%';
+  uiAcc += dt; if (uiAcc >= 0.25){ uiAcc = 0; slowUI(T); }
+}
+
+/* ---------- Démarrer, arrêter ---------- */
+const ERR = {
+  insecure:'Le navigateur ne donne accès au micro qu’aux pages ouvertes en https://. Ouvre cette page depuis son adresse https (ou depuis un ordinateur, en ouvrant directement le fichier).',
+  NotAllowedError:'L’accès au micro a été refusé. Autorise le micro pour cette page (icône à gauche de l’adresse), puis réessaie.',
+  SecurityError:'L’accès au micro est bloqué par le navigateur pour cette page.',
+  NotFoundError:'Aucun micro trouvé sur cet appareil.',
+  NotReadableError:'Le micro est déjà pris par une autre application. Ferme-la, puis réessaie.',
+  ended:'Le micro s’est arrêté (appareil débranché ou accès retiré). Appuie sur « Activer le micro » pour reprendre.'
+};
+function showErr(name){ const e = $('#vErr'); e.textContent = ERR[name] || `Impossible d’ouvrir le micro (${name}).`; e.hidden = false; }
+
+function stopSource(){
+  if (stream){ stream.getTracks().forEach(tr => { tr.onended = null; tr.stop(); }); stream = null; }
+  if (micNode){ try { micNode.disconnect(); } catch (e) {} micNode = null; }
+  if (demo){ clearInterval(demo.timer); demo.nodes.forEach(n => { try { n.stop && n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} }); demo = null; }
+  collector = null;
+}
+function setMode(m){
+  mode = m; preparing = false;
+  resetSession();
+  const chip = $('#modeChip');
+  chip.textContent = m === 'mic' ? 'Micro actif' : m === 'demo' ? 'Démo' : 'À l’arrêt';
+  chip.dataset.kind = m === 'mic' ? 'live' : m === 'demo' ? 'demo' : '';
+  $('#btnStop').hidden = m === 'idle';
+  $('#vActions').hidden = m !== 'idle';
+  $('#demoPanel').hidden = m !== 'demo';
+  if (m === 'idle'){ setVerdict('idle'); slowUI(0); }
+  updateNotice(); drawAll();
+}
+async function startMic(){
+  $('#vErr').hidden = true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ showErr('insecure'); return; }
+  await ensureCtx(); stopSource();
+  const base = { echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:1 };   // on veut le son brut, sans correction automatique
+  try {
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: S.deviceId ? Object.assign({ deviceId:{ exact:S.deviceId } }, base) : base }); }
+    catch (e){
+      if (S.deviceId && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')){ S.deviceId = ''; save(); stream = await navigator.mediaDevices.getUserMedia({ audio: base }); }
+      else throw e;
+    }
+  } catch (e){ if (mode !== 'idle') setMode('idle'); showErr(e.name || 'Erreur'); return; }
+  const tr = stream.getAudioTracks()[0];
+  const set = tr.getSettings ? tr.getSettings() : {};
+  try { micNode = ctx.createMediaStreamSource(stream); }
+  catch (e){   // certains navigateurs exigent la même fréquence que le micro
+    try { ctx.close(); } catch (e2) {}
+    buildCtx(set.sampleRate ? { sampleRate: set.sampleRate } : undefined);
+    await ensureCtx();
+    micNode = ctx.createMediaStreamSource(stream);
+  }
+  micNode.connect(bus);
+  tr.onended = () => { if (mode === 'mic'){ stopSource(); setMode('idle'); showErr('ended'); } };
+  micInfo = { label: tr.label || 'Micro', set };
+  setMode('mic');
+  listDevices(); lockScreen(); updateDiag();
+}
+function stopAll(){ stopSource(); setMode('idle'); if (wakeLock){ try { wakeLock.release(); } catch (e) {} wakeLock = null; } }
+async function lockScreen(){ try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && mode !== 'idle') lockScreen(); });
+
+async function listDevices(){
+  const sel = $('#selInput');
+  try {
+    const ds = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    sel.innerHTML = '';
+    ds.forEach((d, i) => { const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || `Entrée ${i + 1}`; sel.appendChild(o); });
+    const cur = micInfo && micInfo.set.deviceId; if (cur) sel.value = cur;
+  } catch (e) {}
+}
+function updateDiag(){
+  const d = $('#diag');
+  if (mode !== 'mic' || !micInfo){ d.textContent = ''; return; }
+  const s = micInfo.set, auto = s.autoGainControl === true || s.echoCancellation === true || s.noiseSuppression === true;
+  d.textContent = `${micInfo.label} · ${Math.round(sr).toLocaleString('fr-FR')} Hz · correction automatique du micro : ${auto ? 'restée active' : 'coupée'}`;
+}
+function updateNotice(){
+  const n = $('#notice');
+  if (mode !== 'mic'){ n.hidden = true; return; }
+  const s = micInfo ? micInfo.set : {}, auto = s.autoGainControl === true || s.echoCancellation === true;
+  if (!S.cal){ n.hidden = false; $('#btnCal').hidden = false; $('#noticeText').textContent = 'Cet appareil n’est pas encore étalonné : les couleurs sont approximatives. L’étalonnage prend moins d’une minute.'; }
+  else if (auto){ n.hidden = false; $('#btnCal').hidden = true; $('#noticeText').textContent = 'Cet appareil corrige le volume du micro tout seul, et la page n’a pas pu l’en empêcher : les niveaux affichés peuvent être faussés.'; }
+  else n.hidden = true;
+  const ci = $('#calInfo');
+  ci.textContent = S.cal ? `Fait le ${new Date(S.cal.at).toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' })}.` : 'Pas encore fait sur cet appareil.';
+}
+
+/* ---------- Étalonnage ---------- */
+function collect(ms, onProg){ return new Promise(res => { collector = { t:0, ms, frames:[], res, onProg }; }); }
+function median(a){ const s = Float64Array.from(a).sort(); return s[s.length >> 1]; }
+function mean(a){ let s = 0; for (const v of a) s += v; return s / a.length; }
+function buildCal(frames, noise){
+  let act = frames;
+  if (noise){
+    act = frames.filter(f => f[3] >= noise.total + 8);
+    if (act.length < 20 || act.length < frames.length * 0.25) return null;
+  }
+  const span = frames[frames.length - 1][6];
+  const hold = (col, win) => {   // médiane du « plus haut niveau des dernières secondes », la même mesure que celle du verdict
+    const out = [], W = Math.min(win, span * 0.6);
+    for (let i = 0; i < frames.length; i++){
+      if (frames[i][6] < W) continue;
+      let m = -200; for (let j = i; j >= 0 && frames[i][6] - frames[j][6] <= W; j--) if (frames[j][col] > m) m = frames[j][col];
+      out.push(m);
+    }
+    return median(out.length ? out : frames.map(f => f[col]));
+  };
+  const eL = mean(act.map(f => f[7])), eM = mean(act.map(f => f[8])), eH = mean(act.map(f => f[9]));
+  const ref = { low: hold(0, 2000), mid: hold(1, 2000), high: hold(2, 6000), total: hold(3, 2000),
+                pl: dB(mean(act.map(f => f[4]))), pm: dB(mean(act.map(f => f[5]))), lm: dB(eL) - dB(eM), hm: dB(eH) - dB(eM) };
+  if (ref.total < -110) return null;
+  const sil = {};
+  for (const b of BK) sil[b] = noise ? clamp(noise[b] + 5 - ref[b], -30, -12) : -26;
+  return { ref, sil, at: Date.now(), snr: noise ? ref.total - noise.total : null };
+}
+let calOpen = false, calNoise = null;
+const calMsg = t => { $('#calMsg').textContent = t; };
+const calProg = p => { $('#calProg').style.width = (p * 100).toFixed(1) + '%'; };
+async function openCal(){
+  if (mode !== 'mic'){ await startMic(); if (mode !== 'mic') return; }
+  calNoise = null; calProg(0);
+  $('#calS1').dataset.state = ''; $('#calS2').dataset.state = '';
+  $('#calGo1').disabled = false; $('#calGo2').disabled = true;
+  calMsg('Commence par l’étape 1.');
+  const d = $('#dlgCal'); if ($('#dlgSettings').open) $('#dlgSettings').close();
+  d.showModal(); calOpen = true;
+}
+$('#dlgCal').addEventListener('close', () => { calOpen = false; collector = null; });
+$('#calGo1').onclick = async () => {
+  $('#calGo1').disabled = true; $('#calGo2').disabled = true; calMsg('Mesure du silence en cours, on ne bouge plus.');
+  const fr = await collect(4000, calProg);
+  calNoise = {}; BK.forEach((b, i) => { calNoise[b] = median(fr.map(f => f[i])); });
+  $('#calS1').dataset.state = 'done'; $('#calGo1').disabled = false; $('#calGo2').disabled = false; calProg(0);
+  calMsg('Silence mesuré. Passe à l’étape 2 quand le frère est prêt à parler.');
+};
+$('#calGo2').onclick = async () => {
+  $('#calGo1').disabled = true; $('#calGo2').disabled = true; calMsg('Mesure de la voix en cours, il continue à parler.');
+  const fr = await collect(10000, calProg);
+  const c = buildCal(fr, calNoise);
+  $('#calGo1').disabled = false; $('#calGo2').disabled = false; calProg(0);
+  if (!c){ calMsg('Je n’ai pas entendu assez de voix. Vérifie que le micro de l’estrade est ouvert et que le son sort bien dans la salle, puis recommence l’étape 2.'); return; }
+  S.cal = c; S.sens = 0; save(); syncSettings(); resetSession(); updateNotice();   // l'historique et le bilan repartent de zéro, avec les bonnes couleurs
+  $('#calS2').dataset.state = 'done';
+  const snr = Math.round(c.snr);
+  calMsg(snr >= 15 ? `C’est réglé. La voix dépasse le bruit de la salle de ${snr} dB, c’est très bien. Tu peux fermer.`
+                   : `C’est réglé, mais la voix ressort peu du bruit de la salle (${snr} dB d’écart). Si les couleurs te semblent instables, rapproche l’appareil d’une enceinte et recommence.`);
+};
+
+/* ---------- Démo : des sons de synthèse, envoyés uniquement à l'analyse ---------- */
+const SC = { silence:{m:-200}, weak:{m:-15}, normal:{m:0}, warm:{m:6.5}, hot:{m:11}, clip:{m:19}, bass:{m:-3, l:14}, treble:{m:0, h:13}, dull:{m:0, h:-30} };
+const g2 = v => Math.pow(10, v / 20);
+async function startDemo(){
+  $('#vErr').hidden = true;
+  await ensureCtx(); stopSource();
+  const len = Math.round(sr * 4), buf = ctx.createBuffer(1, len, sr), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * 0.25;
+  const noise = ctx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+  const bq = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  const gn = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+  const chain = (...n) => { for (let i = 0; i < n.length - 1; i++) n[i].connect(n[i+1]); return n; };
+  const gL = gn(0.9), gM = gn(0.5), gH = gn(0.09), syl = gn(0.8), master = gn(1);
+  const parts = [
+    ...chain(noise, bq('bandpass', 140, 1.0), bq('lowpass', 210, 0.7), bq('lowpass', 210, 0.7), gL, syl),
+    ...chain(noise, bq('bandpass', 800, 0.5), bq('highpass', 320, 0.7), bq('lowpass', 2200, 0.7), bq('lowpass', 2200, 0.7), gM, syl),
+    ...chain(noise, bq('highpass', 5000, 0.7), bq('highpass', 5000, 0.7), bq('lowpass', 9000, 0.7), gH, syl)
+  ];
+  syl.connect(master); master.connect(bus);
+  const popO = ctx.createOscillator(); popO.frequency.value = 70; const popG = gn(0); popO.connect(popG); popG.connect(bus);
+  const larO = ctx.createOscillator(); larO.frequency.value = 2480; const larG = gn(0); larO.connect(larG); larG.connect(bus);
+  noise.start(); popO.start(); larO.start();
+  demo = { nodes:[...new Set(parts), popO, larO, master, popG, larG], gL, gH, master, popG, larG, level:0, lowBoost:0,
+    timer: setInterval(() => {   // une « parole » : des syllabes d'intensité variable, avec de petites pauses
+      const pause = Math.random() < 0.07;
+      syl.gain.setTargetAtTime(pause ? 0.08 : 0.6 + Math.random() * 0.4, ctx.currentTime, 0.035);
+    }, 130) };
+  setMode('demo');
+  demoCal = null; preparing = true; setVerdict('prep'); markScenario('normal');
+  await wait(500);
+  if (mode !== 'demo') return;
+  const fr = await collect(2500);
+  if (mode !== 'demo') return;
+  demoCal = buildCal(fr, null) || DEFAULT_CAL;
+  preparing = false; resetLive();
+}
+function markScenario(k){ $$('#demoScen .btn').forEach(b => b.setAttribute('aria-pressed', b.dataset.sc === k ? 'true' : 'false')); }
+function setScenario(k){
+  if (!demo) return;
+  const s = SC[k], t = ctx.currentTime;
+  demo.master.gain.setValueAtTime(s.m <= -100 ? 0 : g2(s.m), t);
+  demo.gL.gain.setValueAtTime(0.9 * g2(s.l || 0), t);
+  demo.gH.gain.setValueAtTime(0.09 * g2(s.h || 0), t);
+  demo.level = s.m; demo.lowBoost = s.l || 0;
+  // on repart d'une mesure neuve, pour que l'écran montre tout de suite la nouvelle situation
+  const d = demo;
+  setTimeout(() => {
+    if (demo !== d) return;
+    for (const b of BK){ disp[b] = -140; win[b] = new WinMax(b === 'high' ? 60 : 20); }
+    bal.l.fill(0); bal.m.fill(0); bal.h.fill(0); bal.a.fill(0);
+  }, 160);
+  markScenario(k);
+}
+function demoPop(){
+  if (!demo || !demoCal) return;
+  const t = ctx.currentTime + 0.02, lvl = demoCal.ref.pl + Math.max(-10, demo.level) + demo.lowBoost + 16;
+  const A = Math.min(1.5, Math.SQRT2 * g2(lvl)), g = demo.popG.gain;
+  g.cancelScheduledValues(t); g.setValueAtTime(0, t); g.linearRampToValueAtTime(A, t + 0.008); g.setTargetAtTime(0, t + 0.03, 0.012);
+}
+function demoLarsen(){
+  if (!demo || !demoCal) return;
+  const t = ctx.currentTime, top = Math.min(0.9, Math.SQRT2 * g2(demoCal.ref.total + Math.max(0, demo.level) + 9)), g = demo.larG.gain;
+  g.cancelScheduledValues(t); g.setValueAtTime(top * 0.003, t); g.exponentialRampToValueAtTime(top, t + 2.2); g.setValueAtTime(top, t + 3.6); g.linearRampToValueAtTime(0, t + 3.75);
+}
+
+/* ---------- Réglages ---------- */
+function setRole(r){
+  S.role = r; save();
+  $('#roleSono').setAttribute('aria-checked', r === 'sono'); $('#roleEstrade').setAttribute('aria-checked', r === 'estrade');
+  if (verdict) setVerdict(verdict);
+}
+function syncSettings(){
+  $('#rngSens').value = S.sens; $('#sensVal').textContent = `${S.sens > 0 ? '+' : ''}${S.sens} dB`;
+  $('#chkPop').checked = S.popOn; $('#selPop').value = S.popLevel;
+  $('#chkLarsen').checked = S.larsenOn; $('#selLarsen').value = S.larsenLevel;
+  $('#chkVib').checked = S.vibrate; $('#fldVib').hidden = !navigator.vibrate;
+}
+$('#roleSono').onclick = () => setRole('sono');
+$('#roleEstrade').onclick = () => setRole('estrade');
+$('#btnMic').onclick = startMic;
+$('#btnDemo').onclick = startDemo;
+$('#btnStop').onclick = stopAll;
+$('#btnSettings').onclick = () => { syncSettings(); updateDiag(); updateNotice(); $('#dlgSettings').showModal(); };
+$('#btnCal').onclick = openCal;
+$('#btnCal2').onclick = openCal;
+$$('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+$('#rngSens').oninput = e => { S.sens = +e.target.value; save(); syncSettings(); };
+$('#chkPop').onchange = e => { S.popOn = e.target.checked; save(); };
+$('#selPop').onchange = e => { S.popLevel = +e.target.value; save(); };
+$('#chkLarsen').onchange = e => { S.larsenOn = e.target.checked; save(); };
+$('#selLarsen').onchange = e => { S.larsenLevel = +e.target.value; save(); };
+$('#chkVib').onchange = e => { S.vibrate = e.target.checked; save(); buzz([80]); };
+$('#selInput').onchange = e => { S.deviceId = e.target.value; save(); if (mode === 'mic') startMic(); };
+$('#btnReset').onclick = () => { Object.assign(S, DEFAULTS); try { localStorage.removeItem(LS_KEY); } catch (e) {} syncSettings(); setRole('sono'); updateNotice(); };
+$('#demoScen').onclick = e => { const b = e.target.closest('[data-sc]'); if (b) setScenario(b.dataset.sc); };
+$('#demoPop').onclick = demoPop;
+$('#demoLarsen').onclick = demoLarsen;
+
+/* ---------- Mise en route ---------- */
+setRole(S.role === 'estrade' ? 'estrade' : 'sono');
+syncSettings();
+setMode('idle');
+if (window.ResizeObserver){ const ro = new ResizeObserver(fitAll); meters.forEach(m => ro.observe(m.cv)); ro.observe(HC.cv); }
+window.addEventListener('resize', fitAll);
+fitAll();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
