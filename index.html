@@ -78,6 +78,14 @@ button,select,input{font-family:inherit}
 @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.13)}}
 .err{grid-column:1/-1;margin:0;padding:10px 12px;border-radius:10px;background:rgba(255,61,61,.14);border:1px solid rgba(255,61,61,.5)}
 
+/* Jauge globale : la force de la voix en une seule barre, celle qui décide du bandeau */
+.gauge{grid-column:1/-1}
+.ghead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:6px}
+.gdb{font:600 .82rem/1 var(--font-body);color:var(--muted);font-variant-numeric:tabular-nums}
+.gcanvas{height:30px}
+.gcanvas canvas{width:100%;height:100%;display:block}
+.gscale{display:grid;grid-template-columns:3fr 6fr 8fr 9fr;padding-top:5px;font:600 .72rem/1 var(--font-body);color:var(--muted);text-align:center}
+
 .notice{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;border:1px dashed #4b5f88;color:var(--muted);font-size:.93rem}
 .notice p{margin:0;max-width:70ch}
 
@@ -105,7 +113,7 @@ button,select,input{font-family:inherit}
 
 /* Détecteurs */
 .dets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.det{--c:var(--pop);display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.det{--c:var(--pop);display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;align-items:center;align-content:start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
 .det.larsen{--c:var(--larsen)}
 .det .dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--c);grid-row:span 2}
 .det b{font:700 1.08rem/1 var(--font-display);text-transform:uppercase;letter-spacing:.04em}
@@ -118,9 +126,10 @@ button,select,input{font-family:inherit}
 
 /* Historique */
 .hgrid{display:grid;grid-template-columns:62px minmax(0,1fr);column-gap:8px}
-.hlabels{display:grid;grid-template-rows:22px repeat(3,minmax(0,1fr));row-gap:4px;height:172px;font:600 .74rem/1 var(--font-body);color:var(--muted)}
+.hlabels{display:grid;grid-template-rows:22px repeat(4,minmax(0,1fr));row-gap:4px;height:212px;font:600 .74rem/1 var(--font-body);color:var(--muted)}
 .hlabels span{display:flex;align-items:center}
-.hcanvas{height:172px}
+.hlabels span:nth-child(2){color:var(--text)}
+.hcanvas{height:212px}
 .hcanvas canvas{width:100%;height:100%;display:block}
 .haxis{grid-column:2;display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);padding-top:6px;font-variant-numeric:tabular-nums}
 .legend{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
@@ -179,11 +188,26 @@ input[type=range]{accent-color:var(--z-ok)}
 .callabel{font-size:.8rem;color:var(--muted);margin-bottom:5px}
 .diag{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
 
+/* Vue Estrade : seulement l'essentiel, en grand, pour être lu de loin et d'un coup d'œil.
+   Le détail (barres, historique, bilan, chiffres) reste dans la vue Sono. */
+body[data-role="estrade"] .meters,body[data-role="estrade"] .history,body[data-role="estrade"] .bilan,body[data-role="estrade"] .sono-only{display:none}
+body[data-role="estrade"] .verdict{min-height:min(58vh,540px);align-content:center;gap:16px 22px;padding:22px 20px;border-left-width:14px;background:color-mix(in srgb,var(--c) 26%,var(--panel))}
+body[data-role="estrade"] .lamp{width:clamp(76px,15vw,128px);height:clamp(76px,15vw,128px)}
+body[data-role="estrade"] .lamp svg{width:54%;height:54%}
+body[data-role="estrade"] .verdict h2{font-size:clamp(2.6rem,9.5vw,5.4rem)}
+body[data-role="estrade"] .advice{font-size:clamp(1.25rem,3.4vw,2.1rem);line-height:1.25;max-width:32ch}
+body[data-role="estrade"] .gcanvas{height:52px}
+body[data-role="estrade"] .gscale{font-size:.95rem}
+@media (max-width:560px){
+  body[data-role="estrade"] .verdict{grid-template-columns:minmax(0,1fr)}
+}
+
 @media (min-width:920px){
   .grid{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-areas:"meters history" "meters dets" "bilan bilan" "help help"}
   .meters{grid-area:meters;display:flex;flex-direction:column}
   .history{grid-area:history}.dets{grid-area:dets}.bilan{grid-area:bilan}.help{grid-area:help}
   .mstage{flex:1;height:auto;min-height:270px}
+  body[data-role="estrade"] .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"dets" "help"}
 }
 @media (max-width:420px){
   .mgrid{grid-template-columns:70px repeat(3,minmax(0,1fr));column-gap:7px}
@@ -223,6 +247,11 @@ input[type=range]{accent-color:var(--z-ok)}
       <p class="advice" id="vAdvice"></p>
     </div>
     <p class="err" id="vErr" hidden></p>
+    <div class="gauge" id="gauge" aria-live="off" hidden>
+      <div class="ghead"><p class="kicker">Niveau de la voix</p><span class="gdb sono-only" id="gDb"></span></div>
+      <div class="gcanvas"><canvas id="gLvl" aria-label="Niveau global de la voix"></canvas></div>
+      <div class="gscale" aria-hidden="true"><span></span><span>Faible</span><span>Bon</span><span>Trop fort</span></div>
+    </div>
     <div class="verdict-actions" id="vActions">
       <button type="button" class="btn primary" id="btnMic">Activer le micro</button>
       <button type="button" class="btn" id="btnDemo">Voir la démo, sans micro</button>
@@ -282,7 +311,7 @@ input[type=range]{accent-color:var(--z-ok)}
     <section class="panel history">
       <h3>Les 2 dernières minutes</h3>
       <div class="hgrid">
-        <div class="hlabels" aria-hidden="true"><span>Alertes</span><span>Graves</span><span>Médiums</span><span>Aigus</span></div>
+        <div class="hlabels" aria-hidden="true"><span>Alertes</span><span>Voix</span><span>Graves</span><span>Médiums</span><span>Aigus</span></div>
         <div class="hcanvas"><canvas id="hist" aria-label="Historique des niveaux sur deux minutes"></canvas></div>
         <div class="haxis" aria-hidden="true"><span>il y a 2 min</span><span>1 min 30</span><span>1 min</span><span>30 s</span><span>maintenant</span></div>
       </div>
@@ -310,6 +339,7 @@ input[type=range]{accent-color:var(--z-ok)}
         <b>Larsen</b><small>sifflement qui s’emballe</small>
         <span class="dstate" id="larState">Rien à signaler</span>
         <span class="dcount" id="larCount">0 en 2 minutes</span>
+        <span class="dcount sono-only" id="larFreqs"></span>
       </div>
     </section>
 
@@ -323,12 +353,15 @@ input[type=range]{accent-color:var(--z-ok)}
     <details class="panel help">
       <summary>Comment lire cet écran</summary>
       <ul>
-        <li><b>Le bandeau du haut</b> dit en une phrase ce qui se passe et quoi faire, selon ton poste (Sono ou Estrade).</li>
+        <li><b>Le bandeau du haut</b> dit en une phrase ce qui se passe et quoi faire, selon ton poste. La vue <b>Estrade</b> ne garde que l’essentiel, en grand, pour être lue de loin ; la vue <b>Sono</b> montre tout le détail.</li>
+        <li><b>La jauge « Niveau de la voix »</b> montre la force de la voix telle que l’oreille la perçoit. Le but : rester dans le bleu clair. Le trait blanc garde le niveau le plus haut des 2 dernières secondes ; c’est lui qui décide du bandeau. En vue Sono, l’écart en dB dit de combien bouger le curseur : « +6 dB » veut dire « baisse d’environ 6 dB ».</li>
         <li><b>Les trois barres</b> montrent la voix découpée en graves, médiums et aigus. Quand les trois sont dans le bleu clair, la voix est équilibrée. Le trait blanc garde la trace du niveau le plus haut des dernières secondes ; c’est lui qui décide du mot écrit sous chaque barre.</li>
-        <li><b>L’historique</b> défile de droite à gauche : à droite, maintenant ; à gauche, il y a deux minutes. Une colonne vide veut dire silence.</li>
+        <li><b>L’historique</b> défile de droite à gauche : à droite, maintenant ; à gauche, il y a deux minutes. La ligne « Voix » est le niveau d’ensemble, les trois autres le détail. Une colonne vide veut dire silence.</li>
         <li><b>Pop</b> : un coup sourd et bref, souvent un « p » ou un « b » soufflé trop près du micro, ou un choc sur le pied.</li>
-        <li><b>Larsen</b> : un sifflement continu sur une seule note, quand un micro reprend le son d’une enceinte.</li>
+        <li><b>Larsen</b> : un sifflement continu sur une seule note, quand un micro reprend le son d’une enceinte. En vue Sono, les fréquences qui ont sifflé restent affichées sous le détecteur : si l’une revient souvent, c’est elle qu’il faut baisser sur l’égaliseur de la salle.</li>
+        <li><b>Où poser l’appareil</b> : là où il entend les enceintes comme le public. Ni collé à une enceinte, ni tout près de l’orateur : il entendrait sa voix directe au lieu de la sono.</li>
         <li><b>Étalonnage</b> : chaque appareil entend différemment. Fais l’étalonnage une fois, à l’endroit où l’appareil sera posé, pour que « Bon » corresponde au bon niveau dans la salle.</li>
+        <li><b>Ce que l’écran ne voit pas</b> : il écoute la salle, pas la console. Si le voyant rouge (PEAK ou CLIP) d’un micro s’allume sur la console, le son sature à l’entrée même quand l’écran dit « Bon » : baisse le gain de ce micro.</li>
       </ul>
     </details>
 
@@ -380,7 +413,7 @@ input[type=range]{accent-color:var(--z-ok)}
 <dialog class="sheet" id="dlgCal" aria-labelledby="calTitle">
   <div class="sheet-head"><h2 id="calTitle">Étalonnage</h2><button type="button" class="btn ghost" data-close>Fermer</button></div>
   <div class="sheet-body">
-    <p>L’étalonnage apprend à cet appareil ce qu’est un bon niveau dans la salle. À faire une seule fois, à l’endroit où l’appareil sera utilisé, avec la sono réglée comme pour une réunion.</p>
+    <p>L’étalonnage apprend à cet appareil ce qu’est un bon niveau dans la salle. À faire une seule fois, à l’endroit où l’appareil sera utilisé, avec la sono réglée comme pour une réunion. Pose l’appareil là où il entend les enceintes comme le public, pas à côté de l’orateur.</p>
     <ol class="steps">
       <li id="calS1"><b>Le silence</b><span>Personne ne parle au micro pendant 4 secondes.</span><button type="button" class="btn" id="calGo1">C’est calme, mesurer</button></li>
       <li id="calS2"><b>La voix normale</b><span>Un frère parle au micro de l’estrade comme pendant une réunion, sans s’arrêter, pendant 10 secondes. Il peut lire un texte.</span><button type="button" class="btn" id="calGo2" disabled>Il parle, mesurer</button></li>
@@ -410,12 +443,15 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Réglages enregistrés sur l'appareil ---------- */
-const DEFAULTS = { role:'sono', sens:0, popOn:true, popLevel:1, larsenOn:true, larsenLevel:1, vibrate:false, deviceId:'', cal:null };
+const DEFAULTS = { role:'sono', sens:0, popOn:true, popLevel:1, larsenOn:true, larsenLevel:1, vibrate:false, deviceId:'', cal:null, calOld:false };
 // Références par défaut tant que l'appareil n'est pas étalonné (ordre de grandeur d'un micro de téléphone dans une salle)
-const DEFAULT_CAL = { ref:{low:-46, mid:-41, high:-58, total:-40, pl:-48, pm:-43}, sil:{low:-26, mid:-26, high:-26, total:-26}, at:0, snr:null };
+const DEFAULT_CAL = { ref:{low:-46, mid:-41, high:-58, total:-43, pl:-48, pm:-43}, sil:{low:-26, mid:-26, high:-26, total:-26}, at:0, snr:null };
+const CAL_V = 2;   // version de la mesure. 2 : le niveau global est pesé comme l'oreille l'entend (pondération A)
 function load(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { return {}; } }
 function save(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
-const S = Object.assign({}, DEFAULTS, load());
+const saved = load();
+if (saved.cal && saved.cal.v !== CAL_V){ saved.cal = null; saved.calOld = true; }   // un étalonnage fait avec l'ancienne mesure donnerait de fausses couleurs
+const S = Object.assign({}, DEFAULTS, saved);
 
 let mode = 'idle';           // idle | mic | demo
 let demoCal = null, preparing = false;
@@ -446,7 +482,7 @@ const ZDIM = ZCOL.map(c => hexA(c, 0.17));
 const C_POP = cssv('--pop'), C_LAR = cssv('--larsen'), C_LANE = cssv('--panel-2'), C_LINE = cssv('--line');
 
 /* ---------- Moteur audio ---------- */
-let ctx = null, bus = null, ana, anaL, anaM, freq, lin, tbuf, tL, tM, sr = 48000, binHz = 11.72;
+let ctx = null, bus = null, ana, anaL, anaM, freq, lin, aw, tbuf, tL, tM, sr = 48000, binHz = 11.72;
 let stream = null, micNode = null, micInfo = null, demo = null, wakeLock = null;
 const B = {};
 
@@ -471,6 +507,13 @@ function buildCtx(opts){
   B.mid = [Math.min(ny, k(250) + 1), Math.min(ny, k(4000))];
   B.high = [Math.min(ny, k(4000) + 1), Math.min(ny, k(16000))];
   B.lar = [Math.min(ny, k(150)), Math.min(ny, k(10000))];
+  // Pondération A : le niveau global est pesé comme l'oreille l'entend (les médiums comptent plus que les graves).
+  // Un ronflement de ventilation ou un choc sourd ne passe donc pas pour de la voix forte.
+  aw = new Float32Array(ana.frequencyBinCount);
+  for (let i = 1; i < aw.length; i++){
+    const f2 = (i * binHz) ** 2, ra = 148693636 * f2 * f2 / ((f2 + 424.36) * Math.sqrt((f2 + 11599.29) * (f2 + 544496.41)) * (f2 + 148693636));
+    aw[i] = ra * ra * 1.5849;
+  }
 }
 async function ensureCtx(){
   if (!ctx) buildCtx();
@@ -478,7 +521,7 @@ async function ensureCtx(){
 }
 
 /* ---------- État de l'analyse ---------- */
-const BANDS = ['low','mid','high'], BK = ['low','mid','high','total'];
+const BANDS = ['low','mid','high'], BK = ['low','mid','high','total'], HB = ['total','low','mid','high'];   // HB : les lignes de l'historique
 const raw = {low:0, mid:0, high:0, total:0};
 const disp = {}, rel = {}, win = {};
 const fast = {pl:0, pm:0};
@@ -499,7 +542,7 @@ function balance(){
   return { dl: dB(l) - dB(m) - c.ref.lm, dh: dB(h) - dB(m) - c.ref.hm };
 }
 const HN = 480, HSLICE = 0.25;   // 480 colonnes de 0,25 s = 2 minutes
-const hist = { p:[0,1,2].map(() => new Uint8Array(HN)), z:[0,1,2].map(() => new Uint8Array(HN)), ev:new Uint8Array(HN), head:0, t:0, cur:{rel:[-200,-200,-200], ev:0} };
+const hist = { p:HB.map(() => new Uint8Array(HN)), z:HB.map(() => new Uint8Array(HN)), ev:new Uint8Array(HN), head:0, t:0, cur:{rel:[-200,-200,-200,-200], ev:0} };
 const pop = {}, lar = {}, stats = {};
 let lastClip = -1e9, lastClipCount = -1e9, larAvg = -140, T = 0, collector = null, quietT = 0, vForce = false, vDiffT = 0, hopAcc = 0;
 
@@ -512,8 +555,8 @@ function resetLive(){
 }
 function resetSession(){
   resetLive(); T = 0;
-  hist.p.forEach(a => a.fill(0)); hist.z.forEach(a => a.fill(0)); hist.ev.fill(0); hist.head = 0; hist.t = 0; hist.cur = {rel:[-200,-200,-200], ev:0};
-  Object.assign(stats, { listen:0, zone:[0,0,0,0,0,0], pops:0, larsens:0, clips:0 });
+  hist.p.forEach(a => a.fill(0)); hist.z.forEach(a => a.fill(0)); hist.ev.fill(0); hist.head = 0; hist.t = 0; hist.cur = {rel:[-200,-200,-200,-200], ev:0};
+  Object.assign(stats, { listen:0, zone:[0,0,0,0,0,0], pops:0, larsens:0, clips:0, larFreq:{} });
 }
 resetSession();
 
@@ -523,7 +566,9 @@ function analyse(dt, t){
   const kmax = Math.max(B.high[1], B.lar[1]);
   for (let k = B.low[0]; k <= kmax; k++){ const v = freq[k]; lin[k] = v > -200 ? Math.exp(v * LN10_10) : 0; }
   const bandP = r => { let s = 0; for (let k = r[0]; k <= r[1]; k++) s += lin[k]; return s * 6.566; };   // 6,566 : correction de la fenêtre de Blackman
-  raw.low = bandP(B.low); raw.mid = bandP(B.mid); raw.high = bandP(B.high); raw.total = raw.low + raw.mid + raw.high;
+  raw.low = bandP(B.low); raw.mid = bandP(B.mid); raw.high = bandP(B.high);
+  let sa = 0; for (let k = B.low[0]; k <= B.high[1]; k++) sa += lin[k] * aw[k];
+  raw.total = sa * 6.566;   // niveau global, pondéré A : c'est lui qui décide du bandeau
 
   // Aiguille : montée rapide (50 ms), descente lente tant que ça parle, pour une lecture stable
   const c = cal(), sv = sens();
@@ -542,8 +587,8 @@ function analyse(dt, t){
   // Écrêtage de l'entrée
   const n = clamp(Math.ceil(dt * sr) + 128, 256, tbuf.length);
   ana.getFloatTimeDomainData(tbuf);
-  let clipN = 0;
-  for (let i = tbuf.length - n; i < tbuf.length; i++) if (tbuf[i] >= 0.985 || tbuf[i] <= -0.985) clipN++;
+  let clipN = 0, pk = 0;
+  for (let i = tbuf.length - n; i < tbuf.length; i++){ const a = Math.abs(tbuf[i]); if (a > pk) pk = a; if (a >= 0.985) clipN++; }
   if (clipN >= 3){ lastClip = t; hist.cur.ev |= 4; if (t - lastClipCount > 2){ stats.clips++; buzz([200]); } lastClipCount = t; }
 
   // Détecteur de pop : tout le son reçu depuis l'image précédente, par tranches de 21 ms qui se chevauchent
@@ -563,22 +608,22 @@ function analyse(dt, t){
 
   if (collector){
     const co = collector;
-    co.t += dt * 1000;
+    co.t += dt * 1000; if (pk > co.peak) co.peak = pk;
     co.frames.push([disp.low, disp.mid, disp.high, disp.total, fast.pl, fast.pm, co.t, raw.low, raw.mid, raw.high]);
     if (co.onProg) co.onProg(Math.min(1, co.t / co.ms));
-    if (co.t >= co.ms){ collector = null; co.res(co.frames); }
+    if (co.t >= co.ms){ collector = null; co.frames.peak = co.peak; co.res(co.frames); }
   }
 
   // Historique
   const cur = hist.cur;
-  if (!preparing) BANDS.forEach((b, i) => { if (rel[b] > cur.rel[i]) cur.rel[i] = rel[b]; });
+  if (!preparing) HB.forEach((b, i) => { if (rel[b] > cur.rel[i]) cur.rel[i] = rel[b]; });
   hist.t += dt;
   while (hist.t >= HSLICE){
     hist.t -= HSLICE; hist.head = (hist.head + 1) % HN;
-    BANDS.forEach((b, i) => { hist.z[i][hist.head] = zoneOf(cur.rel[i], c.sil[b]); hist.p[i][hist.head] = Math.round(posOf(cur.rel[i], c.sil[b]) * 255); });
+    HB.forEach((b, i) => { hist.z[i][hist.head] = zoneOf(cur.rel[i], c.sil[b]); hist.p[i][hist.head] = Math.round(posOf(cur.rel[i], c.sil[b]) * 255); });
     hist.ev[hist.head] = cur.ev;
     bal.i = (bal.i + 1) % BAL_N; bal.l[bal.i] = bal.m[bal.i] = bal.h[bal.i] = bal.a[bal.i] = 0;
-    cur.rel = preparing ? [-200, -200, -200] : [rel.low, rel.mid, rel.high]; cur.ev = 0;
+    cur.rel = preparing ? [-200, -200, -200, -200] : [rel.total, rel.low, rel.mid, rel.high]; cur.ev = 0;
   }
 
   // Bilan
@@ -660,7 +705,10 @@ function detectLarsen(dt, t){
   if (tr && !tr.confirmed && tr.dur >= P.hold && tr.level >= tr.start - 6){
     tr.confirmed = true; lar.active = true; lar.freq = peakHz(tr.k);
     const same = t - lar.lastEnd < 1.5 && Math.abs(lar.freq - lar.lastFreq) < 4 * binHz;   // même épisode qui reprend
-    if (!same){ stats.larsens++; lar.times.push(t); buzz([150, 80, 150]); }
+    if (!same){
+      stats.larsens++; lar.times.push(t); buzz([150, 80, 150]);
+      const kf = isoOf(lar.freq); stats.larFreq[kf] = (stats.larFreq[kf] || 0) + 1;   // mémoire des fréquences qui sifflent
+    }
   }
   if (lar.active){ hist.cur.ev |= 2; if (tr) lar.freq = peakHz(tr.k); }
 }
@@ -679,11 +727,11 @@ const V = {
   idle:{t:'Prêt à écouter', i:'mic', k:'Pour commencer', a:'Appuie sur « Activer le micro » et autorise l’accès. Le son est analysé sur cet appareil : rien n’est enregistré ni envoyé.'},
   prep:{t:'Préparation de la démo', i:'wait', a:'Deux secondes, le temps de régler les niveaux de la démonstration.'},
   silence:{t:'Pas de signal', i:'dash',
-    sono:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que son micro est ouvert.',
-    estrade:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que le micro est bien devant lui.'},
+    sono:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que son micro est ouvert et son curseur monté.',
+    estrade:'Aucun son pour l’instant. Si quelqu’un parle, vérifie que le micro est allumé et bien devant lui.'},
   weak:{t:'Son trop faible', i:'up',
-    sono:'Monte un peu le volume du micro.',
-    estrade:'Rapproche le micro de la bouche de l’orateur.'},
+    sono:'Monte un peu le volume du micro. S’il est déjà haut, n’insiste pas, le larsen guette : fais plutôt rapprocher le micro.',
+    estrade:'Rapproche le micro : à une main de la bouche, pointé vers elle.'},
   ok:{t:'Bon niveau', i:'ok',
     sono:'Rien à toucher, tout va bien.',
     estrade:'Le micro est bien placé, rien à toucher.'},
@@ -694,10 +742,10 @@ const V = {
     sono:'Baisse le volume du micro maintenant.',
     estrade:'Éloigne le micro de la bouche de l’orateur.'},
   clip:{t:'Saturation', i:'alert', alert:1,
-    sono:'Le son sature et se déforme. Baisse nettement le volume du micro. Si c’est cet appareil qui sature, éloigne-le de l’enceinte.',
+    sono:'Le son sature et se déforme. Baisse nettement le volume du micro ; si son voyant rouge (PEAK ou CLIP) s’allume sur la console, baisse aussi son gain. Si c’est cet appareil qui sature, éloigne-le de l’enceinte.',
     estrade:'Le son sature et se déforme. Éloigne tout de suite le micro de la bouche de l’orateur.'},
   bass:{t:'Trop de graves', i:'eq',
-    sono:'La voix bourdonne. Baisse un peu les graves de ce micro.',
+    sono:'La voix bourdonne. Baisse un peu les graves de ce micro, ou enclenche son coupe-bas (LOW CUT) s’il en a un.',
     estrade:'La voix bourdonne : le micro est sans doute trop près. Recule-le de quelques centimètres.'},
   treble:{t:'Trop d’aigus', i:'eq',
     sono:'Le son est agressif, les « s » sifflent. Baisse un peu les aigus de ce micro.',
@@ -714,6 +762,10 @@ const V = {
 };
 const fmtHz = f => f < 1000 ? `${Math.round(f / 10) * 10} Hz` : `${(f / 1000).toFixed(1).replace('.', ',')} kHz`;
 const bandName = f => f < 250 ? 'graves' : f < 4000 ? 'médiums' : 'aigus';
+// Les curseurs d'un égaliseur graphique (tiers d'octave) : on range chaque larsen sur le curseur le plus proche
+const ISO = [125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000];
+const isoOf = f => ISO.reduce((a, b) => Math.abs(Math.log(b / f)) < Math.abs(Math.log(a / f)) ? b : a);
+const fmtIso = f => f < 1000 ? `${f} Hz` : `${String(f / 1000).replace('.', ',')} kHz`;
 
 let verdict = '', vCand = null, vCandT = 0, vFreqShown = '';
 function computeVerdict(t){
@@ -764,11 +816,13 @@ function fit(cv){
 }
 const meters = BANDS.map((b, i) => { const cv = $('#' + ['mLow','mMid','mHigh'][i]); return { b, cv, g: cv.getContext('2d'), dpr: 1 }; });
 const HC = { cv: $('#hist'), g: $('#hist').getContext('2d'), dpr: 1 };
-function fitAll(){ meters.forEach(m => m.dpr = fit(m.cv)); HC.dpr = fit(HC.cv); drawAll(); }
+const GA = { cv: $('#gLvl'), g: $('#gLvl').getContext('2d'), dpr: 1 };
+function fitAll(){ meters.forEach(m => m.dpr = fit(m.cv)); HC.dpr = fit(HC.cv); GA.dpr = fit(GA.cv); drawAll(); }
 function rr(g, x, y, w, h, r){ g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
 
 function drawMeter(m){
   const g = m.g, W = m.cv.width, H = m.cv.height, dpr = m.dpr, live = mode !== 'idle';
+  if (W < 8 || H < 8) return;   // barres masquées (vue Estrade)
   const sil = cal().sil[m.b];
   g.clearRect(0, 0, W, H);
   const gap = Math.max(1, Math.round(2 * dpr)), sh = (H - gap * (SEG - 1)) / SEG, r = Math.min(3 * dpr, sh / 2);
@@ -784,13 +838,32 @@ function drawMeter(m){
     if (hp > 0.02){ const y = clamp(H - hp * H - dpr, 0, H - 2 * dpr); g.fillStyle = '#fff'; g.fillRect(0, y, W, Math.max(2, 2 * dpr)); }
   }
 }
+function drawGauge(){   // la même échelle que les barres, couchée : le niveau global de la voix
+  const g = GA.g, W = GA.cv.width, H = GA.cv.height, dpr = GA.dpr, live = mode !== 'idle';
+  if (W < 8 || H < 8) return;   // jauge masquée
+  const sil = cal().sil.total;
+  g.clearRect(0, 0, W, H);
+  const gap = Math.max(1, Math.round(2 * dpr)), sw = (W - gap * (SEG - 1)) / SEG, r = Math.min(3 * dpr, sw / 2);
+  const lit = live ? posOf(rel.total, sil) * SEG : 0;
+  for (let i = 0; i < SEG; i++){
+    const z = segZone(i), x = i * (sw + gap);
+    g.fillStyle = ZDIM[z]; rr(g, x, 0, sw, H, r); g.fill();
+    const f = clamp(lit - i, 0, 1);
+    if (f > 0){ g.globalAlpha = f; g.fillStyle = ZCOL[z]; rr(g, x, 0, sw, H, r); g.fill(); g.globalAlpha = 1; }
+  }
+  if (live){
+    const hp = posOf(win.total.max(), sil);
+    if (hp > 0.02){ g.fillStyle = '#fff'; g.fillRect(clamp(hp * W - dpr, 0, W - 2 * dpr), 0, Math.max(2, 2 * dpr), H); }
+  }
+}
 function drawHist(){
   const g = HC.g, W = HC.cv.width, H = HC.cv.height, dpr = HC.dpr;
+  if (W < 8 || H < 8) return;   // historique masqué (vue Estrade)
   g.clearRect(0, 0, W, H);
-  const evH = 22 * dpr, gap = 4 * dpr, laneH = (H - evH - 3 * gap) / 3, cw = W / HN;
+  const evH = 22 * dpr, gap = 4 * dpr, laneH = (H - evH - 4 * gap) / 4, cw = W / HN;
   const laneY = i => evH + gap + i * (laneH + gap);
   g.fillStyle = C_LANE; g.globalAlpha = 0.55;
-  g.fillRect(0, 0, W, evH); for (let i = 0; i < 3; i++) g.fillRect(0, laneY(i), W, laneH);
+  g.fillRect(0, 0, W, evH); for (let i = 0; i < 4; i++) g.fillRect(0, laneY(i), W, laneH);
   g.globalAlpha = 1;
   g.fillStyle = C_LINE; for (let q = 1; q < 4; q++) g.fillRect(Math.round(W * q / 4), 0, Math.max(1, dpr), H);
 
@@ -798,7 +871,7 @@ function drawHist(){
   const c = cal();
   const pops = [];
   const col = (x, w, zs, ps, ev) => {
-    for (let b = 0; b < 3; b++){
+    for (let b = 0; b < 4; b++){
       if (!zs[b]) continue;
       const h = Math.max(3 * dpr, ps[b] * laneH);
       g.fillStyle = ZCOL[zs[b]]; g.fillRect(x, laneY(b) + laneH - h, w, h);
@@ -807,19 +880,20 @@ function drawHist(){
     if (ev & 2){ g.fillStyle = C_LAR; g.fillRect(x, 2 * dpr, Math.max(w, 2 * dpr), evH - 4 * dpr); }
     if (ev & 1) pops.push(x + w / 2);
   };
+  const hz = hist.z, hp = hist.p;
   for (let i = 0; i < HN; i++){
     const idx = (hist.head - (HN - 1 - i) + HN * 2) % HN;
-    if (!(hist.z[0][idx] | hist.z[1][idx] | hist.z[2][idx] | hist.ev[idx])) continue;
-    col((i - frac) * cw, cw + 0.6, [hist.z[0][idx], hist.z[1][idx], hist.z[2][idx]], [hist.p[0][idx] / 255, hist.p[1][idx] / 255, hist.p[2][idx] / 255], hist.ev[idx]);
+    if (!(hz[0][idx] | hz[1][idx] | hz[2][idx] | hz[3][idx] | hist.ev[idx])) continue;
+    col((i - frac) * cw, cw + 0.6, [hz[0][idx], hz[1][idx], hz[2][idx], hz[3][idx]], [hp[0][idx] / 255, hp[1][idx] / 255, hp[2][idx] / 255, hp[3][idx] / 255], hist.ev[idx]);
   }
   if (frac > 0){   // la colonne en cours de remplissage, tout à droite
     const r = hist.cur.rel;
-    col(W - frac * cw, frac * cw + 0.6, BANDS.map((b, i) => zoneOf(r[i], c.sil[b])), BANDS.map((b, i) => posOf(r[i], c.sil[b])), hist.cur.ev);
+    col(W - frac * cw, frac * cw + 0.6, HB.map((b, i) => zoneOf(r[i], c.sil[b])), HB.map((b, i) => posOf(r[i], c.sil[b])), hist.cur.ev);
   }
   g.fillStyle = C_POP;
   for (const x of pops){ g.beginPath(); g.arc(x, evH / 2, 4.5 * dpr, 0, 6.2832); g.fill(); }
 }
-function drawAll(){ meters.forEach(drawMeter); drawHist(); }
+function drawAll(){ meters.forEach(drawMeter); drawHist(); drawGauge(); }
 
 /* ---------- Mises à jour lentes de l'interface (4 fois par seconde) ---------- */
 const agoTxt = s => s < 3 ? 'à l’instant' : s < 60 ? `il y a ${Math.round(s)} s` : `il y a ${Math.floor(s / 60)} min`;
@@ -841,6 +915,12 @@ function slowUI(t){
     : lar.active ? `En cours, vers ${fmtHz(lar.freq)} (${bandName(lar.freq)})`
     : lar.lastEnd > -1e8 ? `Dernier ${agoTxt(t - lar.lastEnd)}, vers ${fmtHz(lar.lastFreq)}` : 'Rien à signaler';
   $('#larCount').textContent = `${lar.times.length} en 2 minutes`;
+  // Pour la sono : les fréquences qui ont sifflé depuis le démarrage, la plus fréquente en premier
+  const lf = Object.entries(stats.larFreq).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  $('#larFreqs').textContent = lf.length ? 'À baisser sur l’égaliseur si ça revient : ' + lf.map(([f, n]) => fmtIso(+f) + (n > 1 ? ` (${n} fois)` : '')).join(', ') : '';
+  // Pour la sono : l'écart avec le niveau étalonné, c'est-à-dire de combien bouger le curseur
+  const d = Math.round(win.total.max()), talking = mode !== 'idle' && !preparing && hasCal() && zoneOf(win.total.max(), c.sil.total) > 0;
+  $('#gDb').textContent = talking ? `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)} dB par rapport au niveau étalonné` : '';
   drawBilan();
 }
 function drawBilan(){
@@ -895,8 +975,9 @@ function setMode(m){
   $('#btnStop').hidden = m === 'idle';
   $('#vActions').hidden = m !== 'idle';
   $('#demoPanel').hidden = m !== 'demo';
+  $('#gauge').hidden = m === 'idle';
   if (m === 'idle'){ setVerdict('idle'); slowUI(0); }
-  updateNotice(); drawAll();
+  updateNotice(); fitAll();
 }
 async function startMic(){
   $('#vErr').hidden = true;
@@ -946,17 +1027,16 @@ function updateDiag(){
 }
 function updateNotice(){
   const n = $('#notice');
+  $('#calInfo').textContent = S.cal ? `Fait le ${new Date(S.cal.at).toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' })}.` : 'Pas encore fait sur cet appareil.';
   if (mode !== 'mic'){ n.hidden = true; return; }
   const s = micInfo ? micInfo.set : {}, auto = s.autoGainControl === true || s.echoCancellation === true;
-  if (!S.cal){ n.hidden = false; $('#btnCal').hidden = false; $('#noticeText').textContent = 'Cet appareil n’est pas encore étalonné : les couleurs sont approximatives. L’étalonnage prend moins d’une minute.'; }
+  if (!S.cal){ n.hidden = false; $('#btnCal').hidden = false; $('#noticeText').textContent = S.calOld ?'La mesure a été améliorée et l’ancien étalonnage ne convient plus : refais-le, cela prend moins d’une minute.' : 'Cet appareil n’est pas encore étalonné : les couleurs sont approximatives. L’étalonnage prend moins d’une minute.'; }
   else if (auto){ n.hidden = false; $('#btnCal').hidden = true; $('#noticeText').textContent = 'Cet appareil corrige le volume du micro tout seul, et la page n’a pas pu l’en empêcher : les niveaux affichés peuvent être faussés.'; }
   else n.hidden = true;
-  const ci = $('#calInfo');
-  ci.textContent = S.cal ? `Fait le ${new Date(S.cal.at).toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' })}.` : 'Pas encore fait sur cet appareil.';
 }
 
 /* ---------- Étalonnage ---------- */
-function collect(ms, onProg){ return new Promise(res => { collector = { t:0, ms, frames:[], res, onProg }; }); }
+function collect(ms, onProg){ return new Promise(res => { collector = { t:0, ms, frames:[], res, onProg, peak:0 }; }); }
 function median(a){ const s = Float64Array.from(a).sort(); return s[s.length >> 1]; }
 function mean(a){ let s = 0; for (const v of a) s += v; return s / a.length; }
 function buildCal(frames, noise){
@@ -981,7 +1061,7 @@ function buildCal(frames, noise){
   if (ref.total < -110) return null;
   const sil = {};
   for (const b of BK) sil[b] = noise ? clamp(noise[b] + 5 - ref[b], -30, -12) : -26;
-  return { ref, sil, at: Date.now(), snr: noise ? ref.total - noise.total : null };
+  return { v: CAL_V, ref, sil, at: Date.now(), snr: noise ? ref.total - noise.total : null };
 }
 let calOpen = false, calNoise = null;
 const calMsg = t => { $('#calMsg').textContent = t; };
@@ -1009,10 +1089,12 @@ $('#calGo2').onclick = async () => {
   const c = buildCal(fr, calNoise);
   $('#calGo1').disabled = false; $('#calGo2').disabled = false; calProg(0);
   if (!c){ calMsg('Je n’ai pas entendu assez de voix. Vérifie que le micro de l’estrade est ouvert et que le son sort bien dans la salle, puis recommence l’étape 2.'); return; }
-  S.cal = c; S.sens = 0; save(); syncSettings(); resetSession(); updateNotice();   // l'historique et le bilan repartent de zéro, avec les bonnes couleurs
+  S.cal = c; S.calOld = false; S.sens = 0; save(); syncSettings(); resetSession(); updateNotice();   // l'historique et le bilan repartent de zéro, avec les bonnes couleurs
   $('#calS2').dataset.state = 'done';
   const snr = Math.round(c.snr);
-  calMsg(snr >= 15 ? `C’est réglé. La voix dépasse le bruit de la salle de ${snr} dB, c’est très bien. Tu peux fermer.`
+  // Marge de l'appareil : si une voix normale monte déjà à moins de 12 dB de son maximum, il saturera avant de pouvoir dire « trop fort »
+  calMsg(fr.peak >= 0.25 ? 'C’est réglé, mais cet appareil reçoit déjà un son très fort : il saturera avant de pouvoir te dire « trop fort ». Éloigne-le de l’enceinte, puis recommence.'
+       : snr >= 15 ? `C’est réglé. La voix dépasse le bruit de la salle de ${snr} dB, c’est très bien. Tu peux fermer.`
                    : `C’est réglé, mais la voix ressort peu du bruit de la salle (${snr} dB d’écart). Si les couleurs te semblent instables, rapproche l’appareil d’une enceinte et recommence.`);
 };
 
@@ -1085,7 +1167,9 @@ function demoLarsen(){
 function setRole(r){
   S.role = r; save();
   $('#roleSono').setAttribute('aria-checked', r === 'sono'); $('#roleEstrade').setAttribute('aria-checked', r === 'estrade');
+  document.body.dataset.role = r;   // la vue Estrade ne garde que l'essentiel, en grand (voir la feuille de style)
   if (verdict) setVerdict(verdict);
+  fitAll();
 }
 function syncSettings(){
   $('#rngSens').value = S.sens; $('#sensVal').textContent = `${S.sens > 0 ? '+' : ''}${S.sens} dB`;
@@ -1118,7 +1202,7 @@ $('#demoLarsen').onclick = demoLarsen;
 setRole(S.role === 'estrade' ? 'estrade' : 'sono');
 syncSettings();
 setMode('idle');
-if (window.ResizeObserver){ const ro = new ResizeObserver(fitAll); meters.forEach(m => ro.observe(m.cv)); ro.observe(HC.cv); }
+if (window.ResizeObserver){ const ro = new ResizeObserver(fitAll); meters.forEach(m => ro.observe(m.cv)); ro.observe(HC.cv); ro.observe(GA.cv); }
 window.addEventListener('resize', fitAll);
 fitAll();
 requestAnimationFrame(loop);
